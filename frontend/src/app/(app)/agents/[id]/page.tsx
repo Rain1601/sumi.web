@@ -265,6 +265,7 @@ export default function AgentDetailPage() {
   const [lang, setLang] = useState("auto");
   const [intPolicy, setIntPolicy] = useState("always");
   const [isActive, setIsActive] = useState(true);
+  const [voiceprintEnabled, setVoiceprintEnabled] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -290,6 +291,7 @@ export default function AgentDetailPage() {
       setLang(found.language);
       setIntPolicy(found.interruption_policy);
       setIsActive(found.is_active);
+      setVoiceprintEnabled(found.voiceprint_enabled);
     } catch (err) {
       console.error("Failed to load agent:", err);
       router.replace("/agents");
@@ -317,6 +319,7 @@ export default function AgentDetailPage() {
         language: lang,
         interruption_policy: intPolicy,
         is_active: isActive,
+        voiceprint_enabled: voiceprintEnabled,
       });
       await load();
     } catch (err) {
@@ -544,6 +547,26 @@ export default function AgentDetailPage() {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
+              </div>
+              <div className="field">
+                <label className="field-label">Voiceprint</label>
+                <button
+                  type="button"
+                  onClick={() => setVoiceprintEnabled(!voiceprintEnabled)}
+                  className="flex items-center gap-2 h-[38px] px-3 rounded-[10px] text-[13px] transition-all duration-200"
+                  style={{
+                    background: voiceprintEnabled ? "var(--accent-dim)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${voiceprintEnabled ? "var(--accent)" : "var(--glass-border)"}`,
+                    color: voiceprintEnabled ? "var(--accent)" : "var(--fg-3)",
+                  }}
+                >
+                  <span style={{
+                    width: 8, height: 8, borderRadius: "50%",
+                    background: voiceprintEnabled ? "var(--accent)" : "var(--fg-3)",
+                    transition: "all 0.2s ease",
+                  }} />
+                  {voiceprintEnabled ? "Enabled" : "Disabled"}
+                </button>
               </div>
             </div>
           </div>
