@@ -1,0 +1,83 @@
+[project]
+name = "sumi-web-backend"
+version = "0.1.0"
+description = "Sumi.web - Real-time Voice AI Agent Platform"
+requires-python = ">=3.11"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+
+    # LiveKit
+    "livekit>=0.17.0",
+    "livekit-agents>=0.12.0",
+    "livekit-plugins-silero>=0.7.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.13.0",
+
+    # Supabase Auth (JWT verification)
+    "PyJWT[crypto]>=2.8.0",
+    "supabase>=2.0",
+
+    # Redis
+    "redis[hiredis]>=5.0",
+
+    # Vector store
+    "chromadb>=0.5.0",
+
+    # Utilities
+    "python-dotenv>=1.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+# ASR providers
+asr-deepgram = ["livekit-plugins-deepgram>=0.7.0"]
+asr-google = ["google-cloud-speech>=2.0"]
+asr-openai = ["livekit-plugins-openai>=0.10.0"]
+
+# TTS providers
+tts-elevenlabs = ["livekit-plugins-elevenlabs>=0.8.0"]
+tts-google = ["google-cloud-texttospeech>=2.0"]
+
+# NLP providers
+nlp-anthropic = ["livekit-plugins-anthropic>=0.5.0", "anthropic>=0.40.0"]
+nlp-openai = ["livekit-plugins-openai>=0.10.0", "openai>=1.50.0"]
+
+# Voiceprint
+voiceprint = ["resemblyzer>=0.1.3", "speechbrain>=1.0"]
+
+# All providers
+all = [
+    "sumi-web-backend[asr-deepgram,asr-google,asr-openai]",
+    "sumi-web-backend[tts-elevenlabs,tts-google]",
+    "sumi-web-backend[nlp-anthropic,nlp-openai]",
+]
+
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

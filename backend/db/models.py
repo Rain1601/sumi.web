@@ -1,0 +1,131 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+def gen_uuid() -> str:
+    return str(uuid.uuid4())
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class ProviderModel(Base):
+    """A configured model instance (e.g., 'Deepgram Nova-2 中文', 'Claude Sonnet')."""
+    __tablename__ = "provider_models"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)           # Display name
+    provider_type: Mapped[str] = mapped_column(String, nullable=False)  # "asr" | "tts" | "nlp"
+    provider_name: Mapped[str] = mapped_column(String, nullable=False)  # "deepgram" | "openai" | "anthropic" | etc.
+    api_key: Mapped[str] = mapped_column(String, default="")            # Encrypted in prod
+    model_name: Mapped[str] = mapped_column(String, default="")         # e.g., "nova-2", "claude-sonnet-4-20250514"
+    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)  # Provider-specific params
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # Supabase UID
+    display_name: Mapped[str | None] = mapped_column(String)
+    email: Mapped[str | None] = mapped_column(String)
+    preferred_language: Mapped[str] = mapped_column(String, default="zh")
+    voiceprint_enrolled: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Agent(Base):
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name_zh: Mapped[str] = mapped_column(String, nullable=False)
+    name_en: Mapped[str] = mapped_column(String, nullable=False)
+    description_zh: Mapped[str | None] = mapped_column(Text)
+    description_en: Mapped[str | None] = mapped_column(Text)
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    # Provider references (link to provider_models)
+    asr_model_id: Mapped[str | None] = mapped_column(ForeignKey("provider_models.id"))
+    tts_model_id: Mapped[str | None] = mapped_column(ForeignKey("provider_models.id"))
+    nlp_model_id: Mapped[str | None] = mapped_column(ForeignKey("provider_models.id"))
+    # Legacy direct config (fallback if model_id not set)
+    asr_provider: Mapped[str] = mapped_column(String, nullable=False, default="")
+    asr_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    tts_provider: Mapped[str] = mapped_column(String, nullable=False, default="")
+    tts_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    nlp_provider: Mapped[str] = mapped_column(String, nullable=False, default="")
+    nlp_config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    vad_mode: Mapped[str] = mapped_column(String, default="backend")
+    vad_config: Mapped[dict | None] = mapped_column(JSON)
+    tools: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    interruption_policy: Mapped[str] = mapped_column(String, default="always")
+    voiceprint_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    language: Mapped[str] = mapped_column(String, default="auto")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    room_name: Mapped[str | None] = mapped_column(String)
+    language: Mapped[str | None] = mapped_column(String)
+    started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column()
+    summary: Mapped[str | None] = mapped_column(Text)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # user | assistant | system | tool
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_name: Mapped[str | None] = mapped_column(String)
+    tool_input: Mapped[dict | None] = mapped_column(JSON)
+    tool_output: Mapped[dict | None] = mapped_column(JSON)
+    is_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column()
+    audio_url: Mapped[str | None] = mapped_column(String)
+
+
+class MemoryFact(Base):
+    __tablename__ = "memory_facts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", "key", name="uq_memory_user_cat_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    category: Mapped[str] = mapped_column(String, nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    source_conversation_id: Mapped[str | None] = mapped_column(ForeignKey("conversations.id"))
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TraceEvent(Base):
+    __tablename__ = "trace_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    timestamp: Mapped[float] = mapped_column(Float, nullable=False)
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    data: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

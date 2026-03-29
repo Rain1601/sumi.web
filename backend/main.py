@@ -1,0 +1,63 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from backend.config import settings
+from backend.db.engine import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    settings.db_path.mkdir(parents=True, exist_ok=True)
+    await init_db()
+
+    # Register providers and tools
+    from backend.providers.registry import register_default_providers
+    from backend.agents.tools.common.datetime_tool import DateTimeTool
+    from backend.agents.tools.registry import tool_registry
+
+    register_default_providers()
+    tool_registry.register(DateTimeTool())
+
+    # Wire up tracing broadcaster
+    from backend.tracing.collector import event_collector
+    from backend.tracing.broadcaster import trace_broadcaster
+    event_collector.set_broadcaster(trace_broadcaster)
+
+    yield
+    # Shutdown
+
+
+app = FastAPI(
+    title="Sumi.web",
+    description="Real-time Voice AI Agent Platform",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "env": settings.app_env}
+
+
+# Register routers
+from backend.api import auth, agents, conversations, memory, models, rooms, traces  # noqa: E402
+
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
+app.include_router(models.router, prefix="/api/models", tags=["models"])
+app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+app.include_router(conversations.router, prefix="/api/conversations", tags=["conversations"])
+app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
+app.include_router(traces.router, prefix="/api/traces", tags=["traces"])
