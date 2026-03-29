@@ -2,7 +2,15 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useRoomContext } from "@livekit/components-react";
-import { RoomEvent, TranscriptionSegment, Participant } from "livekit-client";
+import { RoomEvent, TranscriptionSegment, Participant, DataPacket_Kind } from "livekit-client";
+
+interface VoiceprintEvent {
+  type: string;
+  is_primary: boolean;
+  score: number;
+  text: string;
+  is_anchor: boolean;
+}
 
 interface TranscriptEntry {
   id: string;
@@ -10,6 +18,7 @@ interface TranscriptEntry {
   text: string;
   isFinal: boolean;
   timestamp: number;
+  voiceprint?: { score: number; isPrimary: boolean };
 }
 
 /**

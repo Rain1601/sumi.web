@@ -128,6 +128,10 @@ async def entrypoint(ctx: JobContext):
     llm = create_llm(llm_info)
     tts = create_tts(tts_info)
 
+    # Give voiceprint STT access to room for data channel events
+    if voiceprint_enabled and hasattr(stt, "set_room"):
+        stt.set_room(ctx.room)
+
     # Agent with system prompt
     agent = Agent(instructions=agent_def.system_prompt or "You are a helpful voice assistant.")
 
