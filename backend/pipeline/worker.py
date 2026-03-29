@@ -123,7 +123,8 @@ async def entrypoint(ctx: JobContext):
                 f"TTS={tts_info and tts_info['model_name']}")
 
     # Create plugins via unified factory
-    stt = create_stt(stt_info)
+    voiceprint_enabled = getattr(agent_def, "voiceprint_enabled", False)
+    stt = create_stt(stt_info, voiceprint=voiceprint_enabled)
     llm = create_llm(llm_info)
     tts = create_tts(tts_info)
 

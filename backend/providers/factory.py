@@ -125,7 +125,7 @@ def register_tts(provider_name: str, factory: TTSFactory):
 
 # ─── Create functions (called by worker) ─────────────────────────────────────
 
-def create_stt(model_info: dict | None) -> stt.STT:
+def create_stt(model_info: dict | None, *, voiceprint: bool = False, voiceprint_model: str = "resemblyzer", voiceprint_threshold: float = 0.65) -> stt.STT:
     m = model_info or {}
     provider = m.get("provider_name", "dashscope")
     factory = _STT_REGISTRY.get(provider)
@@ -133,6 +133,12 @@ def create_stt(model_info: dict | None) -> stt.STT:
         raise ValueError(f"Unknown STT provider: {provider}. Available: {list(_STT_REGISTRY)}")
     instance = factory(m)
     logger.info(f"[ASR INIT] provider={provider} model={m.get('model_name', '?')}")
+
+    if voiceprint:
+        from backend.pipeline.voiceprint_stt import VoiceprintSTT
+        instance = VoiceprintSTT(instance, model=voiceprint_model, threshold=voiceprint_threshold)
+        logger.info(f"[VOICEPRINT] Enabled: model={voiceprint_model} threshold={voiceprint_threshold}")
+
     return instance
 
 
