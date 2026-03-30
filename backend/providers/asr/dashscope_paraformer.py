@@ -71,66 +71,71 @@ class ParaformerRecognizeStream(stt.RecognizeStream):
         self._ws_url = ws_url
 
     async def _run(self):
-        """Main loop: connect to DashScope WebSocket, send audio, receive transcripts."""
+        """Main loop with auto-reconnect on timeout/disconnect."""
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                await self._run_session()
+                return  # Clean exit
+            except Exception as e:
+                logger.warning(f"[ASR DASHSCOPE] Session failed (attempt {attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(0.5)
+                else:
+                    logger.error(f"[ASR DASHSCOPE] Max retries reached, giving up")
+
+    async def _run_session(self):
+        """Single session: connect, stream audio, receive transcripts."""
         task_id = uuid.uuid4().hex
         headers = {"Authorization": f"Bearer {self._api_key}"}
 
-        try:
-            async with websockets.connect(
-                self._ws_url,
-                subprotocols=["chat"],
-                additional_headers=headers,
-                ping_interval=20,
-                ping_timeout=10,
-                max_size=2**20,
-            ) as ws:
-                logger.info(f"[ASR DASHSCOPE] Connected to {self._ws_url}, model={self._model}")
+        async with websockets.connect(
+            self._ws_url,
+            subprotocols=["chat"],
+            additional_headers=headers,
+            ping_interval=15,
+            ping_timeout=10,
+            max_size=2**20,
+        ) as ws:
+            logger.info(f"[ASR DASHSCOPE] Connected, model={self._model}")
 
-                # Send run-task
-                run_task = {
-                    "header": {
-                        "action": "run-task",
-                        "task_id": task_id,
-                        "streaming": "duplex",
+            run_task = {
+                "header": {
+                    "action": "run-task",
+                    "task_id": task_id,
+                    "streaming": "duplex",
+                },
+                "payload": {
+                    "task_group": "audio",
+                    "task": "asr",
+                    "function": "recognition",
+                    "model": self._model,
+                    "parameters": {
+                        "format": "pcm",
+                        "sample_rate": self._sample_rate,
+                        "max_sentence_silence": self._max_sentence_silence,
+                        "disfluency_removal_enabled": False,
+                        "heartbeat": True,
                     },
-                    "payload": {
-                        "task_group": "audio",
-                        "task": "asr",
-                        "function": "recognition",
-                        "model": self._model,
-                        "parameters": {
-                            "format": "pcm",
-                            "sample_rate": self._sample_rate,
-                            "max_sentence_silence": self._max_sentence_silence,
-                            "disfluency_removal_enabled": False,
-                        },
-                        "input": {},
-                    },
-                }
-                await ws.send(json.dumps(run_task))
+                    "input": {},
+                },
+            }
+            await ws.send(json.dumps(run_task))
 
-                # Wait for task-started
-                resp = json.loads(await ws.recv())
-                event_name = resp.get("header", {}).get("event", "")
-                if event_name == "task-failed":
-                    err = resp.get("header", {}).get("error_message", "unknown")
-                    raise Exception(f"Paraformer task failed: {err}")
-                if event_name != "task-started":
-                    raise Exception(f"Unexpected event: {event_name}")
+            resp = json.loads(await ws.recv())
+            event_name = resp.get("header", {}).get("event", "")
+            if event_name == "task-failed":
+                err = resp.get("header", {}).get("error_message", "unknown")
+                raise Exception(f"Paraformer task failed: {err}")
+            if event_name != "task-started":
+                raise Exception(f"Unexpected event: {event_name}")
 
-                logger.info(f"[ASR DASHSCOPE] Task started: {task_id}")
+            logger.info(f"[ASR DASHSCOPE] Task started: {task_id}")
 
-                # Two concurrent tasks: send audio + receive results
-                send_task = asyncio.create_task(self._send_audio(ws, task_id))
-                recv_task = asyncio.create_task(self._recv_results(ws))
+            send_task = asyncio.create_task(self._send_audio(ws, task_id))
+            recv_task = asyncio.create_task(self._recv_results(ws))
 
-                await asyncio.gather(send_task, recv_task)
-
-        except websockets.exceptions.ConnectionClosed as e:
-            logger.warning(f"[ASR DASHSCOPE] WebSocket closed: {e}")
-        except Exception as e:
-            logger.error(f"[ASR DASHSCOPE] Error: {e}")
-            raise
+            await asyncio.gather(send_task, recv_task)
 
     async def _send_audio(self, ws, task_id: str):
         """Read audio frames from LiveKit and send to DashScope as PCM bytes."""
