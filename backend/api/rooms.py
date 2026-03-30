@@ -1,7 +1,11 @@
 import logging
 
 from fastapi import APIRouter
-from livekit.api import AccessToken, VideoGrants, LiveKitAPI, CreateAgentDispatchRequest
+from livekit.api import (
+    AccessToken, VideoGrants, LiveKitAPI,
+    CreateAgentDispatchRequest, DeleteRoomRequest,
+    ListRoomsRequest,
+)
 from pydantic import BaseModel
 
 from backend.api.deps import CurrentUserId
@@ -23,10 +27,33 @@ class CreateRoomResponse(BaseModel):
     livekit_url: str
 
 
+def _lk_api():
+    lk_url = settings.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
+    return LiveKitAPI(url=lk_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
+
+
 @router.post("/create", response_model=CreateRoomResponse)
 async def create_room(req: CreateRoomRequest, user_id: CurrentUserId):
-    """Create room + dispatch named agent."""
+    """Delete old room if exists, create fresh room + single agent dispatch."""
     room_name = f"sumi_{user_id}_{req.agent_id}"
+
+    try:
+        api = _lk_api()
+        # Kill old room to avoid duplicate agents
+        try:
+            await api.room.delete_room(DeleteRoomRequest(room=room_name))
+            logger.info(f"[ROOM] Cleaned old room: {room_name}")
+        except Exception:
+            pass  # Room didn't exist, fine
+
+        # Dispatch exactly one agent
+        dispatch = await api.agent_dispatch.create_dispatch(
+            CreateAgentDispatchRequest(room=room_name, agent_name=AGENT_NAME)
+        )
+        logger.info(f"[ROOM] Created room={room_name} dispatch={dispatch.id}")
+        await api.aclose()
+    except Exception as e:
+        logger.warning(f"[ROOM] Dispatch error: {e}")
 
     token = (
         AccessToken(settings.livekit_api_key, settings.livekit_api_secret)
@@ -35,18 +62,6 @@ async def create_room(req: CreateRoomRequest, user_id: CurrentUserId):
         .with_grants(VideoGrants(room_join=True, room=room_name))
         .with_metadata(req.agent_id)
     )
-
-    # Dispatch our named agent
-    try:
-        lk_url = settings.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
-        api = LiveKitAPI(url=lk_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
-        dispatch = await api.agent_dispatch.create_dispatch(
-            CreateAgentDispatchRequest(room=room_name, agent_name=AGENT_NAME)
-        )
-        logger.info(f"[ROOM] room={room_name} dispatch={dispatch.id}")
-        await api.aclose()
-    except Exception as e:
-        logger.warning(f"[ROOM] Dispatch error: {e}")
 
     return CreateRoomResponse(
         room_name=room_name,
