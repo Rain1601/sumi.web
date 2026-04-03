@@ -83,6 +83,21 @@ async def entrypoint(ctx: JobContext):
     if voiceprint_enabled and hasattr(stt, "set_room"):
         stt.set_room(ctx.room)
 
+    # Create session tracer early so instrumented wrappers can use it
+    from backend.tracing.session_tracer import SessionTracer
+    tracer = SessionTracer(
+        conversation_id=conversation_id,
+        room_name=ctx.room.name,
+        user_id=user_id,
+        agent_id=agent_id,
+    )
+
+    # Wrap LLM and TTS with instrumentation for token/audio timing
+    from backend.tracing.instrumented_llm import InstrumentedLLM
+    from backend.tracing.instrumented_tts import InstrumentedTTS
+    llm = InstrumentedLLM(llm, tracer)
+    tts = InstrumentedTTS(tts, tracer)
+
     # Agent with system prompt
     agent = Agent(instructions=agent_def.system_prompt or "You are a helpful voice assistant.")
 
@@ -97,14 +112,7 @@ async def entrypoint(ctx: JobContext):
 
     session = AgentSession(**session_kwargs)
 
-    # Attach session tracer for structured event collection
-    from backend.tracing.session_tracer import SessionTracer
-    tracer = SessionTracer(
-        conversation_id=conversation_id,
-        room_name=ctx.room.name,
-        user_id=user_id,
-        agent_id=agent_id,
-    )
+    # Attach session tracer event handlers to the session
     tracer.attach(session)
 
     logger.info("[WORKER] Starting agent session...")
