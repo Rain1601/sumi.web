@@ -361,7 +361,7 @@ export default function AgentsPage() {
         >
           {/* Table header */}
           <div
-            className="table-header"
+            className="tbl-header"
             style={{ gridTemplateColumns: GRID_COLS }}
           >
             <span>Agent Name</span>
@@ -381,7 +381,7 @@ export default function AgentsPage() {
             paginated.map((agent, i) => (
               <div
                 key={agent.id}
-                className="table-row animate-in"
+                className="tbl-row animate-in"
                 style={{
                   gridTemplateColumns: GRID_COLS,
                   animationDelay: `${i * 0.02}s`,

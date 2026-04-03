@@ -291,18 +291,18 @@
   .detail-side { padding: 24px 20px; display: flex; flex-direction: column; overflow-y: auto; background: var(--bg-primary); }
 
   /* ─── Table ─── */
-  .table-header {
+  .tbl-header {
     display: grid; padding: 10px 16px;
     font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
     color: var(--text-muted); border-bottom: 1px solid var(--border-medium);
   }
-  .table-row {
+  .tbl-row {
     display: grid; padding: 14px 16px; align-items: center;
     border-bottom: 1px solid var(--border-light);
     transition: background 0.1s ease; cursor: pointer;
     font-size: 13px; color: var(--text-secondary);
   }
-  .table-row:hover { background: var(--bg-hover); }
+  .tbl-row:hover { background: var(--bg-hover); }
 }
 
 /* ─── Keyframes ─── */

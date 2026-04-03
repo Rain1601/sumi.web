@@ -75,7 +75,7 @@ export default function HistoryPage() {
 
       {/* Table header */}
       <div
-        className="table-header animate-in"
+        className="tbl-header animate-in"
         style={{ gridTemplateColumns: GRID_COLS, animationDelay: "0.04s" }}
       >
         <span>Date / Time</span>
@@ -103,7 +103,7 @@ export default function HistoryPage() {
       {!loading && conversations.map((c, i) => (
         <div
           key={c.id}
-          className="table-row animate-in"
+          className="tbl-row animate-in"
           style={{ gridTemplateColumns: GRID_COLS, animationDelay: `${0.06 + i * 0.025}s` }}
         >
           <span className="text-[13px]" style={{ color: "var(--fg-2)" }}>
