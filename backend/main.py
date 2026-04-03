@@ -21,10 +21,12 @@ async def lifespan(app: FastAPI):
     register_default_providers()
     tool_registry.register(DateTimeTool())
 
-    # Wire up tracing broadcaster
+    # Wire up tracing
     from backend.tracing.collector import event_collector
     from backend.tracing.broadcaster import trace_broadcaster
+    from backend.tracing.batch_writer import batch_writer
     event_collector.set_broadcaster(trace_broadcaster)
+    event_collector.set_batch_writer(batch_writer)
 
     yield
     # Shutdown

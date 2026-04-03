@@ -16,6 +16,7 @@ class PipelineEventType(str, Enum):
     # NLP events
     NLP_START = "nlp.start"
     NLP_CHUNK = "nlp.chunk"
+    NLP_FIRST_TOKEN = "nlp.first_token"
     NLP_TOOL_CALL = "nlp.tool_call"
     NLP_TOOL_RESULT = "nlp.tool_result"
     NLP_END = "nlp.end"
@@ -23,13 +24,22 @@ class PipelineEventType(str, Enum):
     # TTS events
     TTS_START = "tts.start"
     TTS_CHUNK = "tts.chunk"
+    TTS_FIRST_AUDIO = "tts.first_audio"
     TTS_END = "tts.end"
 
     # Pipeline lifecycle
     INTERRUPTION = "pipeline.interruption"
     AGENT_SWITCH = "agent.switch"
+    AGENT_JOIN = "session.agent_join"
     SESSION_START = "session.start"
     SESSION_END = "session.end"
+
+    # Turn composites
+    USER_TURN_COMPLETE = "turn.user_complete"
+    AGENT_TURN_COMPLETE = "turn.agent_complete"
+
+    # Voiceprint
+    VOICEPRINT_RESULT = "voiceprint.result"
 
     # Memory events
     MEMORY_QUERY = "memory.query"

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -97,6 +97,7 @@ class Message(Base):
     tool_input: Mapped[dict | None] = mapped_column(JSON)
     tool_output: Mapped[dict | None] = mapped_column(JSON)
     is_truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    turn_index: Mapped[int | None] = mapped_column(Integer, default=None)
     started_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     ended_at: Mapped[datetime | None] = mapped_column()
     audio_url: Mapped[str | None] = mapped_column(String)

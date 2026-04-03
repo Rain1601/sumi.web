@@ -1,11 +1,7 @@
 import logging
 
 from fastapi import APIRouter
-from livekit.api import (
-    AccessToken, VideoGrants, LiveKitAPI,
-    CreateAgentDispatchRequest, DeleteRoomRequest,
-    ListRoomsRequest,
-)
+from livekit.api import AccessToken, VideoGrants, LiveKitAPI, CreateAgentDispatchRequest
 from pydantic import BaseModel
 
 from backend.api.deps import CurrentUserId
@@ -27,33 +23,23 @@ class CreateRoomResponse(BaseModel):
     livekit_url: str
 
 
-def _lk_api():
-    lk_url = settings.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
-    return LiveKitAPI(url=lk_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
-
-
 @router.post("/create", response_model=CreateRoomResponse)
 async def create_room(req: CreateRoomRequest, user_id: CurrentUserId):
-    """Delete old room if exists, create fresh room + single agent dispatch."""
+    """Create room + dispatch agent. Simple and reliable."""
     room_name = f"sumi_{user_id}_{req.agent_id}"
 
+    # Dispatch agent
+    lk_url = settings.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
+    api = LiveKitAPI(url=lk_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
     try:
-        api = _lk_api()
-        # Kill old room to avoid duplicate agents
-        try:
-            await api.room.delete_room(DeleteRoomRequest(room=room_name))
-            logger.info(f"[ROOM] Cleaned old room: {room_name}")
-        except Exception:
-            pass  # Room didn't exist, fine
-
-        # Dispatch exactly one agent
         dispatch = await api.agent_dispatch.create_dispatch(
             CreateAgentDispatchRequest(room=room_name, agent_name=AGENT_NAME)
         )
-        logger.info(f"[ROOM] Created room={room_name} dispatch={dispatch.id}")
-        await api.aclose()
+        print(f"[ROOM] dispatch OK: {dispatch.id} room={room_name}")
     except Exception as e:
-        logger.warning(f"[ROOM] Dispatch error: {e}")
+        print(f"[ROOM] dispatch ERROR: {e}")
+    finally:
+        await api.aclose()
 
     token = (
         AccessToken(settings.livekit_api_key, settings.livekit_api_secret)

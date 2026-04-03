@@ -13,8 +13,8 @@ class EventCollector:
     """Collects trace events from the pipeline and distributes them."""
 
     def __init__(self):
-        self._buffer: list[dict] = []
         self._broadcaster = None
+        self._batch_writer = None
 
     def emit(
         self,
@@ -33,21 +33,21 @@ class EventCollector:
             "data": data or {},
         }
 
-        self._buffer.append(event)
         logger.debug(f"Trace event: {event_type.value} for {conversation_id}")
 
         # Broadcast to WebSocket clients
         if self._broadcaster:
             self._broadcaster.broadcast(conversation_id, event)
 
+        # Persist via batch writer
+        if self._batch_writer:
+            self._batch_writer.enqueue_event(event)
+
     def set_broadcaster(self, broadcaster):
         self._broadcaster = broadcaster
 
-    def flush(self) -> list[dict]:
-        """Flush buffered events for batch persistence."""
-        events = self._buffer.copy()
-        self._buffer.clear()
-        return events
+    def set_batch_writer(self, writer):
+        self._batch_writer = writer
 
 
 # Global instance

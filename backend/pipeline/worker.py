@@ -4,6 +4,7 @@ Uses the unified provider factory for pluggable ASR/NLP/TTS.
 """
 
 import logging
+import uuid
 
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
 from livekit.agents.voice import Agent, AgentSession
@@ -30,80 +31,30 @@ async def resolve_model(model_id: str | None) -> dict | None:
         return {"provider_name": row.provider_name, "model_name": row.model_name, "config": row.config or {}}
 
 
-def setup_logging(session: AgentSession, room_name: str):
-    """Structured pipeline event logging with timestamps for latency monitoring."""
-    import time
-    _timers: dict[str, float] = {}
-
-    def _ts():
-        return time.strftime("%H:%M:%S", time.localtime())
-
-    @session.on("user_state_changed")
-    def on_user_state(ev):
-        if str(ev.new_state) == "speaking":
-            _timers["vad_start"] = time.time()
-            logger.info(f"[{_ts()}][VAD  ][START  ] room={room_name}")
-        elif str(ev.old_state) == "speaking":
-            dur = (time.time() - _timers.get("vad_start", time.time())) * 1000
-            _timers["vad_end"] = time.time()
-            logger.info(f"[{_ts()}][VAD  ][END    ] room={room_name} speech_dur={dur:.0f}ms")
-
-    @session.on("user_input_transcribed")
-    def on_asr(ev):
-        if ev.is_final:
-            asr_dur = (time.time() - _timers.get("vad_end", time.time())) * 1000
-            _timers["asr_end"] = time.time()
-            logger.info(f"[{_ts()}][ASR  ][FINAL  ] room={room_name} text=\"{ev.transcript}\" lang={ev.language} latency={asr_dur:.0f}ms")
-        else:
-            logger.info(f"[{_ts()}][ASR  ][PARTIAL] room={room_name} text=\"{ev.transcript}\"")
-
-    @session.on("agent_state_changed")
-    def on_state(ev):
-        old, new = str(ev.old_state), str(ev.new_state)
-        extra = ""
-        if new == "thinking":
-            _timers["nlp_start"] = time.time()
-        elif new == "speaking" and old == "thinking":
-            nlp_dur = (time.time() - _timers.get("nlp_start", time.time())) * 1000
-            _timers["tts_start"] = time.time()
-            extra = f" nlp_latency={nlp_dur:.0f}ms"
-        elif new == "listening" and old == "speaking":
-            tts_dur = (time.time() - _timers.get("tts_start", time.time())) * 1000
-            e2e_dur = (time.time() - _timers.get("vad_start", time.time())) * 1000
-            extra = f" tts_dur={tts_dur:.0f}ms e2e={e2e_dur:.0f}ms"
-        logger.info(f"[{_ts()}][STATE][{old:8s}-> {new:8s}] room={room_name}{extra}")
-
-    @session.on("speech_created")
-    def on_speech(ev):
-        logger.info(f"[{_ts()}][NLP  ][SPEECH ] room={room_name} source={ev.source}")
-
-    @session.on("conversation_item_added")
-    def on_item(ev):
-        item = ev.item
-        role = getattr(item, "role", "unknown")
-        text = ""
-        if hasattr(item, "text_content"):
-            text = item.text_content[:100] if item.text_content else ""
-        elif hasattr(item, "content"):
-            for part in (item.content or []):
-                if hasattr(part, "text"):
-                    text = part.text[:100]
-                    break
-        logger.info(f"[{_ts()}][TRANS][{role:8s}] room={room_name} text=\"{text}\"")
-
-    @session.on("error")
-    def on_error(ev):
-        logger.error(f"[{_ts()}][ERROR][{ev.source}] room={room_name} error={ev.error}")
-
-
 async def entrypoint(ctx: JobContext):
     logger.info(f"[WORKER] Joining room: {ctx.room.name}")
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    # Start batch writer + wire to event collector (worker is a separate process)
+    from backend.tracing.batch_writer import batch_writer
+    from backend.tracing.collector import event_collector
+    await batch_writer.start()
+    event_collector.set_batch_writer(batch_writer)
 
     participant = await ctx.wait_for_participant()
     user_id = participant.identity
     agent_id = participant.metadata or "default"
     logger.info(f"[WORKER] Participant: user={user_id} agent={agent_id}")
+
+    # Create conversation record
+    conversation_id = str(uuid.uuid4())
+    from backend.db.engine import async_session
+    from backend.db.models import Conversation
+    async with async_session() as db:
+        conv = Conversation(id=conversation_id, user_id=user_id, agent_id=agent_id, room_name=ctx.room.name)
+        db.add(conv)
+        await db.commit()
+    logger.info(f"[WORKER] Conversation created: {conversation_id}")
 
     # Load agent from DB
     from backend.agents.manager import agent_manager
@@ -145,11 +96,26 @@ async def entrypoint(ctx: JobContext):
         logger.info("[VAD] Using Silero VAD")
 
     session = AgentSession(**session_kwargs)
-    setup_logging(session, ctx.room.name)
+
+    # Attach session tracer for structured event collection
+    from backend.tracing.session_tracer import SessionTracer
+    tracer = SessionTracer(
+        conversation_id=conversation_id,
+        room_name=ctx.room.name,
+        user_id=user_id,
+        agent_id=agent_id,
+    )
+    tracer.attach(session)
 
     logger.info("[WORKER] Starting agent session...")
     await session.start(agent=agent, room=ctx.room)
     logger.info(f"[WORKER] Session started for room={ctx.room.name}")
+
+    # Wait until session ends (room closes or participant leaves)
+    # The entrypoint function stays alive as long as the job is active.
+    # LiveKit Agents framework keeps it running until the job is done.
+    # Register shutdown hook to finalize tracing.
+    ctx.add_shutdown_callback(tracer.finalize)
 
 
 if __name__ == "__main__":
