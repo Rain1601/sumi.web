@@ -67,9 +67,55 @@ class Agent(Base):
     interruption_policy: Mapped[str] = mapped_column(String, default="always")
     voiceprint_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     language: Mapped[str] = mapped_column(String, default="auto")
+    opening_line: Mapped[str | None] = mapped_column(Text)           # 开场白
+    user_prompt: Mapped[str | None] = mapped_column(Text)            # User prompt template with ${vars}
+    version: Mapped[int] = mapped_column(Integer, default=1)         # Version number
+    status: Mapped[str] = mapped_column(String, default="draft")     # "draft" | "published"
+    folder_id: Mapped[str | None] = mapped_column(String)            # Folder grouping
+    call_control: Mapped[dict | None] = mapped_column(JSON)          # {noise_detection, interruption_modes, ...}
+    cloned_from: Mapped[str | None] = mapped_column(String)          # Source agent ID if duplicated
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgentVariable(Base):
+    __tablename__ = "agent_variables"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)        # Display name
+    code: Mapped[str] = mapped_column(String, nullable=False)        # Variable code for ${code} substitution
+    var_type: Mapped[str] = mapped_column(String, default="string")  # "string" | "number" | "boolean" | "list"
+    default_value: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+class AgentSkill(Base):
+    __tablename__ = "agent_skills"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[str] = mapped_column(String, nullable=False)        # Unique code identifier
+    description: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str | None] = mapped_column(Text)                # Markdown conversation script
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+class AgentTool(Base):
+    __tablename__ = "agent_tools"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    tool_id: Mapped[str] = mapped_column(String, nullable=False)     # Internal tool identifier
+    description: Mapped[str | None] = mapped_column(Text)
+    parameters_schema: Mapped[dict | None] = mapped_column(JSON)     # JSON Schema for params
+    execution_type: Mapped[str] = mapped_column(String, default="sync_round")  # "sync_round" | "async_round"
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
 class Conversation(Base):

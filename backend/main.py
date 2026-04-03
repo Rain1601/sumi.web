@@ -54,12 +54,15 @@ async def health():
 
 
 # Register routers
-from backend.api import auth, agents, conversations, memory, models, rooms, traces  # noqa: E402
+from backend.api import auth, agents, agent_variables, agent_skills, agent_tools, conversations, memory, models, rooms, traces  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
 app.include_router(models.router, prefix="/api/models", tags=["models"])
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+app.include_router(agent_variables.router, prefix="/api/agents", tags=["agent-variables"])
+app.include_router(agent_skills.router, prefix="/api/agents", tags=["agent-skills"])
+app.include_router(agent_tools.router, prefix="/api/agents", tags=["agent-tools"])
 app.include_router(conversations.router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(traces.router, prefix="/api/traces", tags=["traces"])

@@ -117,6 +117,9 @@ DEFAULT_AGENTS = [
         tools=["get_current_datetime"],
         interruption_policy="always",
         language="auto",
+        opening_line="你好，我是Sumi，有什么可以帮你的吗？",
+        status="published",
+        version=1,
         is_active=True,
     ),
     Agent(
@@ -143,6 +146,9 @@ DEFAULT_AGENTS = [
         tools=["get_current_datetime"],
         interruption_policy="sentence_boundary",
         language="en",
+        opening_line="Hi there! I'm Sumi, your English tutor. What would you like to practice today?",
+        status="published",
+        version=1,
         is_active=True,
     ),
 ]

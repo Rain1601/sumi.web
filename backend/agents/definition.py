@@ -43,6 +43,20 @@ class AgentDefinition:
     voiceprint_enabled: bool = False
     language: str = "auto"                  # "zh" | "en" | "auto"
 
+    # New fields
+    opening_line: str = ""
+    user_prompt: str = ""
+    version: int = 1
+    status: str = "draft"
+    call_control: dict[str, Any] = field(default_factory=lambda: {
+        "noise_detection": True,
+        "interruption_mode": "always",  # always | sentence_boundary | never | multimodal
+        "voiceprint_model": "resemblyzer",
+        "voiceprint_threshold": 0.65,
+        "multi_speaker": False,
+        "subtitle_alignment": False,
+    })
+
     @classmethod
     def from_db_row(cls, row) -> "AgentDefinition":
         """Create from a database Agent model instance."""
@@ -66,4 +80,9 @@ class AgentDefinition:
             interruption_policy=row.interruption_policy or "always",
             voiceprint_enabled=row.voiceprint_enabled or False,
             language=row.language or "auto",
+            opening_line=getattr(row, "opening_line", None) or "",
+            user_prompt=getattr(row, "user_prompt", None) or "",
+            version=getattr(row, "version", 1) or 1,
+            status=getattr(row, "status", "draft") or "draft",
+            call_control=getattr(row, "call_control", None) or {},
         )
