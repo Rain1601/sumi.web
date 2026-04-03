@@ -78,8 +78,8 @@
   body {
     font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-feature-settings: 'cv01', 'cv09';
-    background: var(--bg-primary);
-    color: var(--text-secondary);
+    background: #1C1917 !important;
+    color: #D6D3D1;
     line-height: 1.6;
     letter-spacing: -0.011em;
   }
