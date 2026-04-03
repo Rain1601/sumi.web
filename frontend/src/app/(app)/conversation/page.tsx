@@ -129,7 +129,8 @@ export default function ConversationPage() {
           selectedAgent={selectedAgent} onAgentChange={setSelectedAgent}
         />
       ) : (
-        <LiveKitRoom serverUrl={serverUrl!} token={token} connect audio
+        <LiveKitRoom serverUrl={serverUrl!} token={token} connect
+          audio={{ echoCancellation: true, noiseSuppression: true, autoGainControl: true }}
           className="flex flex-col flex-1 overflow-hidden" onDisconnected={disconnect}
           onError={(err) => console.error("[LiveKit Error]", err)}>
           <div className="flex flex-col flex-1 overflow-hidden">
