@@ -29,6 +29,13 @@ export interface Agent {
   description_zh: string | null;
   description_en: string | null;
   system_prompt: string;
+  opening_line: string | null;
+  user_prompt: string | null;
+  version: number;
+  status: string; // "draft" | "published"
+  folder_id: string | null;
+  call_control: Record<string, unknown> | null;
+  cloned_from: string | null;
   asr_model_id: string | null;
   tts_model_id: string | null;
   nlp_model_id: string | null;
@@ -42,6 +49,44 @@ export interface Agent {
   voiceprint_enabled: boolean;
   language: string;
   is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AgentVariable {
+  id: string;
+  agent_id: string;
+  name: string;
+  code: string;
+  type: string; // "string" | "number" | "boolean" | "enum"
+  default_value: string;
+  description: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AgentSkill {
+  id: string;
+  agent_id: string;
+  name: string;
+  code: string;
+  description: string;
+  content: string;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AgentTool {
+  id: string;
+  agent_id: string;
+  name: string;
+  tool_id: string;
+  type: string; // "sync" | "async"
+  description: string;
+  parameters_schema: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface CreateRoomResponse {
@@ -124,6 +169,10 @@ export async function listAgents(): Promise<Agent[]> {
   return fetchAPI("/api/agents/");
 }
 
+export async function getAgent(id: string): Promise<Agent> {
+  return fetchAPI(`/api/agents/${id}`);
+}
+
 export async function createAgent(data: {
   name_zh: string;
   name_en: string;
@@ -152,6 +201,86 @@ export async function updateAgent(id: string, data: Partial<Agent>): Promise<Age
 
 export async function deleteAgent(id: string): Promise<void> {
   return fetchAPI(`/api/agents/${id}`, { method: "DELETE" });
+}
+
+export async function duplicateAgent(id: string): Promise<Agent> {
+  return fetchAPI(`/api/agents/${id}/duplicate`, { method: "POST" });
+}
+
+export async function publishAgent(id: string): Promise<Agent> {
+  return fetchAPI(`/api/agents/${id}/publish`, { method: "POST" });
+}
+
+// ─── Agent Variables ────────────────────────────────
+
+export async function listAgentVariables(agentId: string): Promise<AgentVariable[]> {
+  return fetchAPI(`/api/agents/${agentId}/variables`);
+}
+
+export async function createAgentVariable(agentId: string, data: Omit<AgentVariable, "id" | "agent_id" | "created_at" | "updated_at">): Promise<AgentVariable> {
+  return fetchAPI(`/api/agents/${agentId}/variables`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAgentVariable(agentId: string, varId: string, data: Partial<AgentVariable>): Promise<AgentVariable> {
+  return fetchAPI(`/api/agents/${agentId}/variables/${varId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentVariable(agentId: string, varId: string): Promise<void> {
+  return fetchAPI(`/api/agents/${agentId}/variables/${varId}`, { method: "DELETE" });
+}
+
+// ─── Agent Skills ───────────────────────────────────
+
+export async function listAgentSkills(agentId: string): Promise<AgentSkill[]> {
+  return fetchAPI(`/api/agents/${agentId}/skills`);
+}
+
+export async function createAgentSkill(agentId: string, data: Omit<AgentSkill, "id" | "agent_id" | "created_at" | "updated_at">): Promise<AgentSkill> {
+  return fetchAPI(`/api/agents/${agentId}/skills`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAgentSkill(agentId: string, skillId: string, data: Partial<AgentSkill>): Promise<AgentSkill> {
+  return fetchAPI(`/api/agents/${agentId}/skills/${skillId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentSkill(agentId: string, skillId: string): Promise<void> {
+  return fetchAPI(`/api/agents/${agentId}/skills/${skillId}`, { method: "DELETE" });
+}
+
+// ─── Agent Tools ────────────────────────────────────
+
+export async function listAgentTools(agentId: string): Promise<AgentTool[]> {
+  return fetchAPI(`/api/agents/${agentId}/tools`);
+}
+
+export async function createAgentTool(agentId: string, data: Omit<AgentTool, "id" | "agent_id" | "created_at" | "updated_at">): Promise<AgentTool> {
+  return fetchAPI(`/api/agents/${agentId}/tools`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAgentTool(agentId: string, toolId: string, data: Partial<AgentTool>): Promise<AgentTool> {
+  return fetchAPI(`/api/agents/${agentId}/tools/${toolId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentTool(agentId: string, toolId: string): Promise<void> {
+  return fetchAPI(`/api/agents/${agentId}/tools/${toolId}`, { method: "DELETE" });
 }
 
 export type { CreateRoomResponse };

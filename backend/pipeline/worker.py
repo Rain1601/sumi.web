@@ -6,22 +6,51 @@ Uses the unified provider factory for pluggable ASR/NLP/TTS.
 import logging
 import uuid
 
+from sqlalchemy import select
+
 from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli
 from livekit.agents.voice import Agent, AgentSession
+from livekit.agents import llm as lk_llm
 from livekit.plugins import silero
 
 from backend.config import settings
+from backend.db.engine import async_session
+from backend.db.models import (
+    AgentSkill,
+    AgentTool,
+    AgentVariable,
+    Conversation,
+    ProviderModel,
+)
 from backend.providers.factory import create_stt, create_llm, create_tts, has_builtin_vad
 
 logger = logging.getLogger(__name__)
 
 
+def substitute_vars(text: str, variables: dict[str, str]) -> str:
+    """Replace ${code} placeholders with variable values."""
+    for code, value in variables.items():
+        text = text.replace(f"${{{code}}}", value)
+    return text
+
+
+def _make_tool_callable(tool_name: str, tool_description: str):
+    """Create a dynamic async callable for an AgentTool.
+
+    Each tool gets its own closure so the captured name is correct.
+    """
+
+    @lk_llm.function_tool(name=tool_name, description=tool_description or tool_name)
+    async def _tool_fn(**kwargs):
+        logger.info(f"[TOOL] {tool_name} called with {kwargs}")
+        return f"Tool {tool_name} executed with {kwargs}"
+
+    return _tool_fn
+
+
 async def resolve_model(model_id: str | None) -> dict | None:
     if not model_id:
         return None
-    from sqlalchemy import select
-    from backend.db.engine import async_session
-    from backend.db.models import ProviderModel
 
     async with async_session() as session:
         result = await session.execute(select(ProviderModel).where(ProviderModel.id == model_id))
@@ -29,6 +58,71 @@ async def resolve_model(model_id: str | None) -> dict | None:
         if not row:
             return None
         return {"provider_name": row.provider_name, "model_name": row.model_name, "config": row.config or {}}
+
+
+async def _load_agent_extras(agent_id: str) -> tuple[dict[str, str], list, list]:
+    """Load variables, skills, and tools for an agent from the DB.
+
+    Returns (variables_dict, skills_list, tools_list).
+    """
+    async with async_session() as db:
+        var_result = await db.execute(
+            select(AgentVariable).where(AgentVariable.agent_id == agent_id)
+        )
+        variables = {v.code: v.default_value or "" for v in var_result.scalars().all()}
+
+        skill_result = await db.execute(
+            select(AgentSkill)
+            .where(AgentSkill.agent_id == agent_id)
+            .order_by(AgentSkill.sort_order)
+        )
+        skills = list(skill_result.scalars().all())
+
+        tool_result = await db.execute(
+            select(AgentTool).where(AgentTool.agent_id == agent_id)
+        )
+        tools = list(tool_result.scalars().all())
+
+    return variables, skills, tools
+
+
+def _build_system_prompt(
+    agent_def,
+    variables: dict[str, str],
+    skills: list,
+) -> str:
+    """Build final system prompt with variable substitution and skills."""
+    system_prompt = substitute_vars(
+        agent_def.system_prompt or "You are a helpful voice assistant.",
+        variables,
+    )
+
+    # Append user_prompt (with variable substitution) if present
+    if agent_def.user_prompt:
+        user_prompt = substitute_vars(agent_def.user_prompt, variables)
+        system_prompt += "\n\n" + user_prompt
+
+    # Append skills / conversation scripts
+    if skills:
+        skills_text = "\n\n## 对话技能/话术\n"
+        for s in skills:
+            skills_text += f"\n### {s.name} (code: {s.code})\n"
+            if s.description:
+                skills_text += f"{s.description}\n"
+            if s.content:
+                skills_text += f"{s.content}\n"
+            skills_text += f"\n当你进入此阶段时，在回复末尾添加 <skill>{s.code}</skill>\n"
+        system_prompt += skills_text
+
+    return system_prompt
+
+
+def _build_tools(agent_tools: list) -> list:
+    """Create LiveKit FunctionTool instances from AgentTool DB records."""
+    lk_tools = []
+    for t in agent_tools:
+        lk_tools.append(_make_tool_callable(t.tool_id, t.description or t.name))
+    return lk_tools
 
 
 async def entrypoint(ctx: JobContext):
@@ -48,21 +142,32 @@ async def entrypoint(ctx: JobContext):
 
     # Create conversation record
     conversation_id = str(uuid.uuid4())
-    from backend.db.engine import async_session
-    from backend.db.models import Conversation
     async with async_session() as db:
         conv = Conversation(id=conversation_id, user_id=user_id, agent_id=agent_id, room_name=ctx.room.name)
         db.add(conv)
         await db.commit()
     logger.info(f"[WORKER] Conversation created: {conversation_id}")
 
-    # Load agent from DB
+    # Load agent definition from DB
     from backend.agents.manager import agent_manager
     try:
         agent_def = await agent_manager.load_agent(agent_id)
     except ValueError:
         logger.error(f"[WORKER] Agent '{agent_id}' not found")
         return
+
+    # Load agent extras: variables, skills, tools
+    variables, skills, agent_tools = await _load_agent_extras(agent_id)
+    logger.info(
+        f"[WORKER] Loaded extras: {len(variables)} variables, "
+        f"{len(skills)} skills, {len(agent_tools)} tools"
+    )
+
+    # Build system prompt with variable substitution and skills
+    system_prompt = _build_system_prompt(agent_def, variables, skills)
+
+    # Build function-calling tools
+    lk_tools = _build_tools(agent_tools) if agent_tools else None
 
     # Resolve model IDs → model info dicts
     stt_info = await resolve_model(getattr(agent_def, "asr_model_id", None))
@@ -98,8 +203,11 @@ async def entrypoint(ctx: JobContext):
     llm = InstrumentedLLM(llm, tracer)
     tts = InstrumentedTTS(tts, tracer)
 
-    # Agent with system prompt
-    agent = Agent(instructions=agent_def.system_prompt or "You are a helpful voice assistant.")
+    # Agent with system prompt and tools
+    agent = Agent(
+        instructions=system_prompt,
+        tools=lk_tools,
+    )
 
     # Session — only use Silero VAD if STT doesn't have built-in VAD
     session_kwargs = dict(stt=stt, llm=llm, tts=tts, allow_interruptions=agent_def.interruption_policy != "never")
@@ -118,6 +226,11 @@ async def entrypoint(ctx: JobContext):
     logger.info("[WORKER] Starting agent session...")
     await session.start(agent=agent, room=ctx.room)
     logger.info(f"[WORKER] Session started for room={ctx.room.name}")
+
+    # Speak the opening line if configured
+    if agent_def.opening_line:
+        await session.say(agent_def.opening_line)
+        logger.info(f"[WORKER] Opening line sent: {agent_def.opening_line[:50]}")
 
     # Wait until session ends (room closes or participant leaves)
     # The entrypoint function stays alive as long as the job is active.
