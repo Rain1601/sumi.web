@@ -27,9 +27,22 @@ TTSFactory = Callable[[dict], tts.TTS]
 # ─── STT Factories ──────────────────────────────────────────────────────────
 
 def _stt_dashscope(m: dict) -> stt.STT:
+    model_name = m.get("model_name", "paraformer-realtime-v2")
+
+    # Realtime API models (OpenAI-compatible protocol)
+    if "realtime" in model_name and ("qwen" in model_name or "fun-asr" in model_name):
+        from backend.providers.asr.dashscope_realtime import DashScopeRealtimeSTT
+        return DashScopeRealtimeSTT(
+            model=model_name,
+            language=m.get("config", {}).get("language", "zh"),
+            vad_threshold=m.get("config", {}).get("vad_threshold", 0.5),
+            silence_duration_ms=m.get("config", {}).get("silence_duration_ms", 400),
+        )
+
+    # Legacy inference API models (Paraformer)
     from backend.providers.asr.dashscope_paraformer import ParaformerSTT
     return ParaformerSTT(
-        model=m.get("model_name", "paraformer-realtime-v2"),
+        model=model_name,
         language=m.get("config", {}).get("language", "zh"),
         max_sentence_silence=m.get("config", {}).get("max_sentence_silence", 600),
     )
