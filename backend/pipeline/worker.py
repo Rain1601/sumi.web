@@ -34,16 +34,43 @@ def substitute_vars(text: str, variables: dict[str, str]) -> str:
     return text
 
 
-def _make_tool_callable(tool_name: str, tool_description: str):
+def _make_tool_callable(
+    tool_record: AgentTool,
+    user_id: str,
+    conversation_id: str,
+    agent_id: str,
+):
     """Create a dynamic async callable for an AgentTool.
 
-    Each tool gets its own closure so the captured name is correct.
+    Each tool gets its own closure so the captured name/context is correct.
+    Executes through the BaseTool.execute() chain for real tool invocation.
     """
+    import time
+    from backend.agents.tools.registry import tool_registry
+    from backend.agents.tools.base import ToolContext
 
-    @lk_llm.function_tool(name=tool_name, description=tool_description or tool_name)
+    tool_name = tool_record.tool_id
+    tool_description = tool_record.description or tool_record.name
+
+    @lk_llm.function_tool(name=tool_name, description=tool_description)
     async def _tool_fn(**kwargs):
-        logger.info(f"[TOOL] {tool_name} called with {kwargs}")
-        return f"Tool {tool_name} executed with {kwargs}"
+        tool = tool_registry.get(tool_name)
+        if tool:
+            context = ToolContext(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                agent_id=agent_id,
+            )
+            t0 = time.monotonic()
+            result = await tool.execute(kwargs, context)
+            dur_ms = round((time.monotonic() - t0) * 1000)
+            logger.info(
+                f"[TOOL][CALL] {tool_name} dur={dur_ms}ms success={result.success}"
+            )
+            return result.output
+        else:
+            logger.warning(f"[TOOL] Tool '{tool_name}' not found in registry")
+            return f"Tool {tool_name} not found"
 
     return _tool_fn
 
@@ -92,29 +119,36 @@ def _build_system_prompt(
     skills: list,
 ) -> str:
     """Build final system prompt with variable substitution and skills."""
-    system_prompt = substitute_vars(
+    parts = []
+
+    # 1. Goal
+    if agent_def.goal:
+        parts.append(f"## 你的任务目标\n{agent_def.goal}")
+
+    # 2. System prompt
+    prompt = substitute_vars(
         agent_def.system_prompt or "You are a helpful voice assistant.",
         variables,
     )
+    parts.append(prompt)
 
-    # Append user_prompt (with variable substitution) if present
+    # 3. User prompt
     if agent_def.user_prompt:
-        user_prompt = substitute_vars(agent_def.user_prompt, variables)
-        system_prompt += "\n\n" + user_prompt
+        parts.append(substitute_vars(agent_def.user_prompt, variables))
 
-    # Append skills / conversation scripts
+    # 4. Skills
     if skills:
-        skills_text = "\n\n## 对话技能/话术\n"
+        skills_text = "\n## 对话技能/话术"
         for s in skills:
-            skills_text += f"\n### {s.name} (code: {s.code})\n"
+            skills_text += f"\n### {s.name} (code: {s.code})"
             if s.description:
-                skills_text += f"{s.description}\n"
+                skills_text += f"\n{s.description}"
             if s.content:
-                skills_text += f"{s.content}\n"
-            skills_text += f"\n当你进入此阶段时，在回复末尾添加 <skill>{s.code}</skill>\n"
-        system_prompt += skills_text
+                skills_text += f"\n{s.content}"
+            skills_text += f"\n当你进入此阶段时，在回复末尾添加 <skill>{s.code}</skill>"
+        parts.append(skills_text)
 
-    return system_prompt
+    return "\n\n".join(parts)
 
 
 def _build_tools(agent_tools: list) -> list:
@@ -165,6 +199,16 @@ async def entrypoint(ctx: JobContext):
 
     # Build system prompt with variable substitution and skills
     system_prompt = _build_system_prompt(agent_def, variables, skills)
+
+    # Inject memory context into system prompt
+    from backend.memory.manager import memory_manager
+    try:
+        memory_context = await memory_manager.build_context(user_id)
+        if memory_context:
+            system_prompt += "\n\n## 用户记忆\n" + memory_context
+            logger.info(f"[MEMORY][QUERY  ] user={user_id} context_len={len(memory_context)}")
+    except Exception as e:
+        logger.warning(f"[MEMORY][QUERY  ] Failed: {e}")
 
     # Build function-calling tools
     lk_tools = _build_tools(agent_tools) if agent_tools else None

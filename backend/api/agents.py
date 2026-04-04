@@ -19,6 +19,7 @@ class AgentResponse(BaseModel):
     description_zh: str | None
     description_en: str | None
     system_prompt: str
+    goal: str | None = None
     asr_model_id: str | None
     tts_model_id: str | None
     nlp_model_id: str | None
@@ -47,6 +48,7 @@ class AgentCreate(BaseModel):
     description_zh: str | None = None
     description_en: str | None = None
     system_prompt: str = ""
+    goal: str | None = None
     asr_model_id: str | None = None
     tts_model_id: str | None = None
     nlp_model_id: str | None = None
@@ -69,6 +71,7 @@ class AgentUpdate(BaseModel):
     description_zh: str | None = None
     description_en: str | None = None
     system_prompt: str | None = None
+    goal: str | None = None
     asr_model_id: str | None = None
     tts_model_id: str | None = None
     nlp_model_id: str | None = None
@@ -105,6 +108,7 @@ async def _to_response(agent: Agent, db) -> AgentResponse:
         description_zh=agent.description_zh,
         description_en=agent.description_en,
         system_prompt=agent.system_prompt,
+        goal=agent.goal,
         asr_model_id=agent.asr_model_id,
         tts_model_id=agent.tts_model_id,
         nlp_model_id=agent.nlp_model_id,
@@ -160,6 +164,7 @@ async def create_agent(req: AgentCreate, db: DbSession):
         description_zh=req.description_zh,
         description_en=req.description_en,
         system_prompt=req.system_prompt,
+        goal=req.goal,
         asr_model_id=req.asr_model_id,
         tts_model_id=req.tts_model_id,
         nlp_model_id=req.nlp_model_id,
@@ -205,7 +210,7 @@ async def update_agent(agent_id: str, req: AgentUpdate, db: DbSession):
     if not agent:
         raise HTTPException(404, "Agent not found")
 
-    for field in ["name_zh", "name_en", "description_zh", "description_en", "system_prompt",
+    for field in ["name_zh", "name_en", "description_zh", "description_en", "system_prompt", "goal",
                   "asr_model_id", "tts_model_id", "nlp_model_id",
                   "vad_mode", "vad_config", "tools", "interruption_policy",
                   "voiceprint_enabled", "language", "is_active",
@@ -247,6 +252,7 @@ async def duplicate_agent(agent_id: str, db: DbSession):
         description_zh=original.description_zh,
         description_en=original.description_en,
         system_prompt=original.system_prompt,
+        goal=original.goal,
         asr_model_id=original.asr_model_id,
         tts_model_id=original.tts_model_id,
         nlp_model_id=original.nlp_model_id,

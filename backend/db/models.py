@@ -50,6 +50,7 @@ class Agent(Base):
     description_zh: Mapped[str | None] = mapped_column(Text)
     description_en: Mapped[str | None] = mapped_column(Text)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    goal: Mapped[str | None] = mapped_column(Text)               # Agent task objective
     # Provider references (link to provider_models)
     asr_model_id: Mapped[str | None] = mapped_column(ForeignKey("provider_models.id"))
     tts_model_id: Mapped[str | None] = mapped_column(ForeignKey("provider_models.id"))

@@ -64,13 +64,92 @@ class MemoryManager:
         if segments:
             await vector_store.add(user_id, segments, metadatas, ids)
 
-        # TODO: Extract structured facts via LLM summarization
-        # This would call the NLP provider to extract key facts from the conversation
-        # and upsert them into the memory_facts table
+        # Extract structured facts via LLM summarization
+        await self.extract_facts(user_id, conversation_id, messages)
+
         logger.info(
             f"Processed conversation {conversation_id}: "
             f"{len(segments)} segments stored in vector memory"
         )
+
+    async def extract_facts(self, user_id: str, conversation_id: str, messages: list[dict]):
+        """Use LLM to extract key facts from conversation and save to DB."""
+        if not messages:
+            return
+
+        # Build conversation text
+        conv_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+
+        # Call LLM to extract facts
+        import httpx
+        from backend.config import settings
+
+        prompt = f"""从以下对话中提取关于用户的关键信息。返回JSON数组，每项包含 category, key, value。
+category 可选: preference, fact, goal, context
+只提取确定的信息，不要猜测。如果没有有用信息，返回空数组 []。
+
+对话内容:
+{conv_text[:2000]}
+
+返回格式: [{{"category": "...", "key": "...", "value": "..."}}]"""
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{settings.dashscope_base_url or 'https://dashscope.aliyuncs.com/compatible-mode/v1'}/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.dashscope_api_key}"},
+                    json={
+                        "model": "qwen-turbo",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 500,
+                    },
+                )
+                data = resp.json()
+                content = data["choices"][0]["message"]["content"]
+
+                # Parse JSON from response
+                import json, re
+                # Try to find JSON array in response
+                match = re.search(r'\[.*\]', content, re.DOTALL)
+                if match:
+                    facts = json.loads(match.group())
+                else:
+                    return
+
+                # Upsert facts to DB
+                from backend.db.engine import async_session as get_session
+                from backend.db.models import MemoryFact, gen_uuid
+                from sqlalchemy import select
+
+                async with get_session() as db:
+                    for f in facts:
+                        if not all(k in f for k in ("category", "key", "value")):
+                            continue
+                        # Upsert
+                        existing = await db.execute(
+                            select(MemoryFact).where(
+                                MemoryFact.user_id == user_id,
+                                MemoryFact.category == f["category"],
+                                MemoryFact.key == f["key"],
+                            )
+                        )
+                        row = existing.scalar_one_or_none()
+                        if row:
+                            row.value = f["value"]
+                            row.source_conversation_id = conversation_id
+                        else:
+                            db.add(MemoryFact(
+                                id=gen_uuid(),
+                                user_id=user_id,
+                                category=f["category"],
+                                key=f["key"],
+                                value=f["value"],
+                                source_conversation_id=conversation_id,
+                            ))
+                    await db.commit()
+                    logger.info(f"Extracted {len(facts)} facts for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to extract facts: {e}")
 
     async def _load_facts(self, user_id: str) -> list[dict]:
         """Load structured facts from the database."""

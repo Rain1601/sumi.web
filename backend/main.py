@@ -16,10 +16,14 @@ async def lifespan(app: FastAPI):
     # Register providers and tools
     from backend.providers.registry import register_default_providers
     from backend.agents.tools.common.datetime_tool import DateTimeTool
+    from backend.agents.tools.common.weather import WeatherTool
+    from backend.agents.tools.common.web_search import WebSearchTool
     from backend.agents.tools.registry import tool_registry
 
     register_default_providers()
     tool_registry.register(DateTimeTool())
+    tool_registry.register(WeatherTool())
+    tool_registry.register(WebSearchTool())
 
     # Wire up tracing
     from backend.tracing.collector import event_collector

@@ -106,6 +106,7 @@ DEFAULT_AGENTS = [
             "and you automatically respond in the language the user speaks. "
             "Keep your responses brief since this is a voice conversation."
         ),
+        goal="你是一个通用语音助手，帮助用户回答问题、查询信息、进行日常对话。",
         asr_model_id="asr-paraformer-v2",
         tts_model_id="tts-cosyvoice-flash",
         nlp_model_id="nlp-claude-sonnet",
@@ -135,6 +136,7 @@ DEFAULT_AGENTS = [
             "Correct grammar mistakes naturally within the conversation. "
             "Keep responses conversational and encouraging."
         ),
+        goal="帮助用户练习英语口语，纠正语法错误，提供自然的英语会话练习。",
         asr_model_id="asr-whisper",
         tts_model_id="tts-openai-alloy",
         nlp_model_id="nlp-gpt4o",

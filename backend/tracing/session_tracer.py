@@ -210,6 +210,40 @@ class SessionTracer:
             self._emit(PipelineEventType.ERROR, ErrorData(source=str(ev.source), message=str(ev.error)))
             logger.error(f"[{self._ts()}][ERROR][{ev.source}] room={self._room_name} error={ev.error}")
 
+    # --- Tool & Memory recording methods ---
+
+    def record_tool_call(self, tool_name: str, params: dict, result: str, duration_ms: float, success: bool):
+        """Record a tool call for tracing."""
+        tool_data = ToolCallData(
+            tool_name=tool_name,
+            params=params,
+            result=str(result)[:200],
+            duration_ms=duration_ms,
+            call_time=time.time(),
+        )
+        self._tool_calls.append(tool_data)
+
+        self._emit(PipelineEventType.NLP_TOOL_CALL, tool_data)
+        logger.info(
+            f"[{self._ts()}][TOOL ][{'OK' if success else 'FAIL':7s}] "
+            f"room={self._room_name} tool={tool_name} dur={duration_ms:.0f}ms "
+            f"result=\"{str(result)[:60]}\""
+        )
+
+    def record_memory_query(self, facts_count: int, vectors_count: int):
+        self._emit(PipelineEventType.MEMORY_QUERY, {
+            "facts_count": facts_count,
+            "vectors_count": vectors_count,
+        })
+        logger.info(f"[{self._ts()}][MEMORY][QUERY  ] room={self._room_name} facts={facts_count} vectors={vectors_count}")
+
+    def record_memory_save(self, segments_count: int, facts_count: int):
+        self._emit(PipelineEventType.MEMORY_UPDATE, {
+            "segments_count": segments_count,
+            "facts_count": facts_count,
+        })
+        logger.info(f"[{self._ts()}][MEMORY][SAVE   ] room={self._room_name} segments={segments_count} facts={facts_count}")
+
     # --- Methods called by InstrumentedLLM/TTS ---
 
     def record_nlp_first_token(self):
@@ -259,6 +293,34 @@ class SessionTracer:
                 await db.commit()
         except Exception as e:
             logger.error(f"[SESSION] Failed to update conversation: {e}")
+
+        # Save to long-term memory
+        try:
+            from backend.memory.manager import memory_manager
+            from sqlalchemy import select
+            from backend.db.engine import async_session
+            from backend.db.models import Message
+
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Message)
+                    .where(Message.conversation_id == self._conversation_id)
+                    .order_by(Message.started_at)
+                )
+                messages = [
+                    {"role": m.role, "content": m.content}
+                    for m in result.scalars().all()
+                ]
+
+            if messages:
+                await memory_manager.process_conversation(
+                    user_id=self._user_id,
+                    conversation_id=self._conversation_id,
+                    messages=messages,
+                )
+                logger.info(f"[{self._ts()}][MEMORY][SAVE   ] user={self._user_id} messages={len(messages)}")
+        except Exception as e:
+            logger.warning(f"[MEMORY][SAVE   ] Failed: {e}")
 
         # Final flush of batch writer
         from backend.tracing.batch_writer import batch_writer

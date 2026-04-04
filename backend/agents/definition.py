@@ -12,6 +12,7 @@ class AgentDefinition:
     name: dict[str, str]                    # {"zh": "默认助手", "en": "Default Assistant"}
     description: dict[str, str] = field(default_factory=dict)
     system_prompt: str = ""
+    goal: str = ""
 
     # Model references (ProviderModel IDs)
     asr_model_id: str | None = None
@@ -65,6 +66,7 @@ class AgentDefinition:
             name={"zh": row.name_zh, "en": row.name_en},
             description={"zh": row.description_zh or "", "en": row.description_en or ""},
             system_prompt=row.system_prompt,
+            goal=getattr(row, "goal", None) or "",
             asr_model_id=getattr(row, "asr_model_id", None),
             tts_model_id=getattr(row, "tts_model_id", None),
             nlp_model_id=getattr(row, "nlp_model_id", None),
