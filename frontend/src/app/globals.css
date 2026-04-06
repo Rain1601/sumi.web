@@ -29,21 +29,21 @@
     --accent-lighter: #2C2018;
     --accent-text: #F0A080;
 
-    /* ─── Semantic ─── */
-    --green: #4ADE80;
-    --green-dim: rgba(74, 222, 128, 0.12);
-    --amber: #FBBF24;
-    --amber-dim: rgba(251, 191, 36, 0.12);
-    --red: #F87171;
-    --red-dim: rgba(248, 113, 113, 0.12);
+    /* ─── Semantic (warm-muted variants) ─── */
+    --green: #7AB88A;
+    --green-dim: rgba(122, 184, 138, 0.15);
+    --amber: #D4A955;
+    --amber-dim: rgba(212, 169, 85, 0.15);
+    --red: #C97070;
+    --red-dim: rgba(201, 112, 112, 0.12);
 
-    /* ─── Pipeline badges ─── */
-    --asr: #67E8F9;
-    --asr-dim: rgba(103, 232, 249, 0.1);
-    --tts: #4ADE80;
-    --tts-dim: rgba(74, 222, 128, 0.1);
-    --nlp: #C084FC;
-    --nlp-dim: rgba(192, 132, 252, 0.1);
+    /* ─── Pipeline (desaturated, warm-leaning) ─── */
+    --asr: #7ABAD0;
+    --asr-dim: rgba(122, 186, 208, 0.12);
+    --tts: #7AB88A;
+    --tts-dim: rgba(122, 184, 138, 0.12);
+    --nlp: #A688C0;
+    --nlp-dim: rgba(166, 136, 192, 0.12);
 
     /* ─── Borders (warm, subtle) ─── */
     --border-light: #3F3A36;
@@ -380,26 +380,24 @@
 }
 .tl-block {
   position: absolute; top: 4px; height: 28px;
-  border-radius: 4px; min-width: 4px;
-  cursor: pointer; transition: all 0.15s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  border-radius: 3px; min-width: 4px;
+  cursor: pointer; transition: opacity 0.15s ease, filter 0.15s ease;
+  box-shadow: none;
 }
 .tl-block:hover {
-  opacity: 1 !important; filter: brightness(1.3);
-  box-shadow: 0 0 8px rgba(255,255,255,0.1), 0 2px 6px rgba(0,0,0,0.4);
-  transform: scaleY(1.1);
+  opacity: 1 !important; filter: brightness(1.15);
   z-index: 10;
 }
 .tl-block-interrupt {
   top: 0; height: 36px; border-radius: 2px;
-  box-shadow: 0 0 10px var(--red), 0 0 4px var(--red);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--red) 40%, transparent);
 }
 .tl-tooltip {
   position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
   background: var(--bg-elevated); border: 1px solid var(--border);
-  border-radius: 8px; padding: 10px 12px; z-index: 50;
+  border-radius: 6px; padding: 10px 12px; z-index: 50;
   font-size: 11px; color: var(--fg); white-space: nowrap;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   display: flex; flex-direction: column; gap: 3px;
   pointer-events: none;
   backdrop-filter: blur(8px);
