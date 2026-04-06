@@ -14,9 +14,13 @@ class AgentManager:
         self._room_agents: dict[str, AgentDefinition] = {}
         self._definitions: dict[str, AgentDefinition] = {}
 
-    async def load_agent(self, agent_id: str) -> AgentDefinition:
-        """Load an agent definition from the database."""
-        if agent_id in self._definitions:
+    async def load_agent(self, agent_id: str, *, use_cache: bool = False) -> AgentDefinition:
+        """Load an agent definition from the database.
+
+        By default always reads from DB so that model/prompt changes in the UI
+        take effect on the next conversation without restarting the worker.
+        """
+        if use_cache and agent_id in self._definitions:
             return self._definitions[agent_id]
 
         from backend.db.engine import async_session

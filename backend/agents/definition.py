@@ -49,6 +49,13 @@ class AgentDefinition:
     user_prompt: str = ""
     version: int = 1
     status: str = "draft"
+
+    # Task Chain architecture
+    role: str = ""                                          # Role definition (persona, tone, boundaries)
+    task_chain: dict[str, Any] | None = None                # Task chain {tasks: [...], entry_task: "..."}
+    rules: list[dict[str, Any]] = field(default_factory=list)  # Agent rules [{type, content, priority}, ...]
+    optimization: dict[str, Any] | None = None              # EQ/IQ optimization config
+
     call_control: dict[str, Any] = field(default_factory=lambda: {
         "noise_detection": True,
         "interruption_mode": "always",  # always | sentence_boundary | never | multimodal
@@ -86,5 +93,9 @@ class AgentDefinition:
             user_prompt=getattr(row, "user_prompt", None) or "",
             version=getattr(row, "version", 1) or 1,
             status=getattr(row, "status", "draft") or "draft",
+            role=getattr(row, "role", None) or "",
+            task_chain=getattr(row, "task_chain", None),
+            rules=getattr(row, "rules", None) or [],
+            optimization=getattr(row, "optimization", None),
             call_control=getattr(row, "call_control", None) or {},
         )
