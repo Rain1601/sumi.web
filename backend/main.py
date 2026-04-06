@@ -58,7 +58,7 @@ async def health():
 
 
 # Register routers
-from backend.api import auth, agents, agent_variables, agent_skills, agent_tools, conversations, memory, models, rooms, traces  # noqa: E402
+from backend.api import auth, agents, agent_variables, agent_skills, agent_tools, agent_audio_init, agent_conversation_test, agent_voice_test, annotations, conversations, memory, models, rooms, traces  # noqa: E402
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(rooms.router, prefix="/api/rooms", tags=["rooms"])
@@ -70,3 +70,16 @@ app.include_router(agent_tools.router, prefix="/api/agents", tags=["agent-tools"
 app.include_router(conversations.router, prefix="/api/conversations", tags=["conversations"])
 app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(traces.router, prefix="/api/traces", tags=["traces"])
+app.include_router(annotations.router, prefix="/api/annotations", tags=["annotations"])
+app.include_router(agent_audio_init.router, prefix="/api/agents", tags=["agent-audio-init"])
+app.include_router(agent_conversation_test.router, prefix="/api/agents", tags=["agent-conversation-test"])
+app.include_router(agent_voice_test.router, prefix="/api/agents", tags=["agent-voice-test"])
+
+# Serve recorded audio files
+from pathlib import Path as _Path
+_audio_dir = _Path(__file__).resolve().parent.parent / "data" / "audio"
+_audio_dir.mkdir(parents=True, exist_ok=True)
+(_audio_dir / "init").mkdir(exist_ok=True)
+
+from fastapi.staticfiles import StaticFiles
+app.mount("/api/audio", StaticFiles(directory=str(_audio_dir)), name="audio")

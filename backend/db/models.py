@@ -75,9 +75,27 @@ class Agent(Base):
     folder_id: Mapped[str | None] = mapped_column(String)            # Folder grouping
     call_control: Mapped[dict | None] = mapped_column(JSON)          # {noise_detection, interruption_modes, ...}
     cloned_from: Mapped[str | None] = mapped_column(String)          # Source agent ID if duplicated
+    # --- Task Chain architecture fields ---
+    role: Mapped[str | None] = mapped_column(Text)                   # Role definition (persona, tone, boundaries)
+    task_chain: Mapped[dict | None] = mapped_column(JSON)            # Task chain definition {tasks: [...], entry_task: "..."}
+    rules: Mapped[list | None] = mapped_column(JSON)                 # Rule list [{type, content, priority}, ...]
+    optimization: Mapped[dict | None] = mapped_column(JSON)          # Optimization config (EQ/IQ tuning)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgentVersion(Base):
+    """Snapshot of agent config at each published version."""
+    __tablename__ = "agent_versions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)   # Full agent config snapshot
+    change_summary: Mapped[str | None] = mapped_column(Text)       # Optional description of changes
+    published_by: Mapped[str | None] = mapped_column(String)       # User who published
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
 class AgentVariable(Base):
@@ -102,6 +120,12 @@ class AgentSkill(Base):
     code: Mapped[str] = mapped_column(String, nullable=False)        # Unique code identifier
     description: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)                # Markdown conversation script
+    # --- Task Chain architecture fields ---
+    skill_type: Mapped[str] = mapped_column(String, default="free")  # "free" | "qa" | "logic_tree"
+    qa_pairs: Mapped[dict | None] = mapped_column(JSON)              # QA pair mode {pairs: [...], fallback: "free"}
+    logic_tree: Mapped[dict | None] = mapped_column(JSON)            # Logic tree mode {nodes: [...], entry_node: "..."}
+    entry_prompt: Mapped[str | None] = mapped_column(Text)           # Instruction when entering this skill
+    exit_conditions: Mapped[dict | None] = mapped_column(JSON)       # Exit conditions config
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
@@ -165,6 +189,37 @@ class MemoryFact(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgentRule(Base):
+    """Rules that constrain agent behavior (forbidden phrases, required actions, format rules)."""
+    __tablename__ = "agent_rules"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
+    rule_type: Mapped[str] = mapped_column(String, nullable=False)  # "forbidden" | "required" | "format"
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+class Annotation(Base):
+    """Human annotations on conversation messages for quality evaluation."""
+    __tablename__ = "annotations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("conversations.id"), nullable=False)
+    message_id: Mapped[str | None] = mapped_column(String)
+    turn_index: Mapped[int | None] = mapped_column(Integer)
+    annotation_type: Mapped[str] = mapped_column(String, nullable=False)  # "asr" | "response" | "skill" | "overall"
+    rating: Mapped[int | None] = mapped_column(Integer)              # 1-5
+    labels: Mapped[list | None] = mapped_column(JSON)                # ["asr_error", "off_topic", ...]
+    corrected_text: Mapped[str | None] = mapped_column(Text)
+    expected_response: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    annotator: Mapped[str] = mapped_column(String, default="human")
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
 class TraceEvent(Base):

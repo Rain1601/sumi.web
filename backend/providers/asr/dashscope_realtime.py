@@ -30,7 +30,7 @@ class DashScopeRealtimeSTT(stt.STT):
         language: str = "zh",
         sample_rate: int = 16000,
         vad_threshold: float = 0.5,
-        silence_duration_ms: int = 400,
+        silence_duration_ms: int = 600,
         api_key: str = "",
         base_url: str = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
     ):
@@ -112,7 +112,7 @@ class DashScopeRealtimeStream(stt.RecognizeStream):
             if resp.get("type") != "session.created":
                 raise Exception(f"Expected session.created, got {resp.get('type')}")
 
-            # Send session.update with VAD config
+            # Send session.update — use DashScope built-in server VAD
             await ws.send(json.dumps({
                 "event_id": "init",
                 "type": "session.update",
@@ -140,22 +140,22 @@ class DashScopeRealtimeStream(stt.RecognizeStream):
             await asyncio.gather(send_task, recv_task)
 
     async def _send_audio(self, ws):
-        """Read audio frames from LiveKit and send as base64 to Realtime API."""
+        """Read audio frames from LiveKit and send as base64 to Realtime API.
+
+        DashScope server VAD handles speech boundary detection.
+        We just forward all audio frames continuously.
+        """
         try:
             async for frame in self._input_ch:
-                if isinstance(frame, rtc.AudioFrame):
-                    pcm_bytes = frame.data.tobytes()
-                    encoded = base64.b64encode(pcm_bytes).decode('utf-8')
-                    await ws.send(json.dumps({
-                        "type": "input_audio_buffer.append",
-                        "audio": encoded,
-                    }))
-        except Exception:
-            pass
+                if not isinstance(frame, rtc.AudioFrame):
+                    continue  # skip FlushSentinel etc.
 
-        # Input ended — send finish
-        try:
-            await ws.send(json.dumps({"type": "session.finish"}))
+                pcm_bytes = frame.data.tobytes()
+                encoded = base64.b64encode(pcm_bytes).decode('utf-8')
+                await ws.send(json.dumps({
+                    "type": "input_audio_buffer.append",
+                    "audio": encoded,
+                }))
         except Exception:
             pass
 

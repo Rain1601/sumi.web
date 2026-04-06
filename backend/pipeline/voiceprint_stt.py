@@ -107,6 +107,7 @@ class VoiceprintRecognizeStream(stt.RecognizeStream):
                             self._event_ch.send_nowait(event)
                         else:
                             logger.info(f"[VOICEPRINT] REJECT score={score:.3f} text=\"{text}\"")
+                            # Don't forward FINAL — agent stays in listening, won't respond
                     else:
                         self._event_ch.send_nowait(event)
 

@@ -2,10 +2,14 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Resolve .env relative to the project root (parent of backend/)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_ENV_FILE = _PROJECT_ROOT / ".env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -42,6 +46,9 @@ class Settings(BaseSettings):
     # 阿里云百炼 DashScope (Paraformer ASR + CosyVoice TTS)
     dashscope_api_key: str = ""
     dashscope_ws_url: str = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
+
+    # App base URL (for DashScope file ASR — needs externally accessible URL)
+    app_base_url: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -419,7 +419,7 @@ export default function AgentsPage() {
                   )}
                 </div>
 
-                {/* Agent ID */}
+                {/* Agent ID — click to copy */}
                 <span
                   className="mono text-[12px]"
                   style={{
@@ -427,10 +427,23 @@ export default function AgentsPage() {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
+                    cursor: "pointer",
                   }}
-                  title={agent.id}
+                  title={`Click to copy: ${agent.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(agent.id);
+                    const el = e.currentTarget;
+                    const original = el.textContent;
+                    el.textContent = "Copied!";
+                    el.style.color = "var(--green)";
+                    setTimeout(() => {
+                      el.textContent = original;
+                      el.style.color = "var(--fg-3)";
+                    }, 1200);
+                  }}
                 >
-                  {agent.id.slice(0, 8)}...
+                  {agent.id.slice(0, 8)}
                 </span>
 
                 {/* Version */}

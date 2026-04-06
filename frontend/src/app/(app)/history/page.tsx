@@ -17,7 +17,7 @@ interface ConversationResponse {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
-const GRID_COLS = "160px 1fr 100px 80px 2fr";
+const GRID_COLS = "160px 1fr 100px 80px 2fr 40px";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -43,17 +43,31 @@ function formatDuration(start: string, end: string | null): string {
 export default function HistoryPage() {
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const token = useAuthStore(s => s.token);
 
-  useEffect(() => {
-    if (!token) { setLoading(false); return; }
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this conversation?")) return;
+    setDeleting(id);
+    try {
+      const r = await fetch(`${API_BASE}/api/conversations/${id}`, { method: "DELETE" });
+      if (r.ok) {
+        setConversations(prev => prev.filter(c => c.id !== id));
+      }
+    } finally {
+      setDeleting(null);
+    }
+  };
 
-    fetch(`${API_BASE}/api/conversations/`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    })
+  useEffect(() => {
+    const url = token
+      ? `${API_BASE}/api/conversations/`
+      : `${API_BASE}/api/conversations/all`;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    fetch(url, { headers })
       .then(r => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json();
@@ -83,6 +97,7 @@ export default function HistoryPage() {
         <span>Duration</span>
         <span>Msgs</span>
         <span>Summary</span>
+        <span></span>
       </div>
 
       {/* Loading */}
@@ -107,7 +122,9 @@ export default function HistoryPage() {
           style={{ gridTemplateColumns: GRID_COLS, animationDelay: `${0.06 + i * 0.025}s` }}
         >
           <span className="text-[13px]" style={{ color: "var(--fg-2)" }}>
-            {formatDate(c.started_at)}
+            <Link href={`/history/${c.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+              {formatDate(c.started_at)}
+            </Link>
           </span>
           <span>
             <Link
@@ -131,6 +148,18 @@ export default function HistoryPage() {
           >
             {c.summary || "--"}
           </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
+            disabled={deleting === c.id}
+            className="tbl-delete-btn"
+            title="Delete"
+            style={{ opacity: deleting === c.id ? 0.3 : undefined }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M5.5 5.5a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5.5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0zm3 .5a.5.5 0 0 1-.5-.5.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6a.5.5 0 0 1 .5-.5"/>
+              <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1 0-2H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1M4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4z"/>
+            </svg>
+          </button>
         </div>
       ))}
     </div>

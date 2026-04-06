@@ -10,7 +10,6 @@ const NAV = [
   { href: "/agents", label: "Agents", short: "Agents" },
   { href: "/models", label: "Models", short: "Models" },
   { href: "/history", label: "History", short: "History" },
-  { href: "/debug", label: "Traces", short: "Traces" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

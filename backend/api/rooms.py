@@ -28,16 +28,19 @@ async def create_room(req: CreateRoomRequest, user_id: CurrentUserId):
     """Create room + dispatch agent. Simple and reliable."""
     room_name = f"sumi_{user_id}_{req.agent_id}"
 
+    lk_ws_url = settings.livekit_url
+    logger.info(f"[ROOM] creating room={room_name} livekit_url={lk_ws_url}")
+
     # Dispatch agent
-    lk_url = settings.livekit_url.replace("ws://", "http://").replace("wss://", "https://")
-    api = LiveKitAPI(url=lk_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
+    lk_api_url = lk_ws_url.replace("ws://", "http://").replace("wss://", "https://")
+    api = LiveKitAPI(url=lk_api_url, api_key=settings.livekit_api_key, api_secret=settings.livekit_api_secret)
     try:
         dispatch = await api.agent_dispatch.create_dispatch(
             CreateAgentDispatchRequest(room=room_name, agent_name=AGENT_NAME)
         )
-        print(f"[ROOM] dispatch OK: {dispatch.id} room={room_name}")
+        logger.info(f"[ROOM] dispatch OK: {dispatch.id} room={room_name}")
     except Exception as e:
-        print(f"[ROOM] dispatch ERROR: {e}")
+        logger.error(f"[ROOM] dispatch ERROR (lk_api_url={lk_api_url}): {e}")
     finally:
         await api.aclose()
 
@@ -52,5 +55,5 @@ async def create_room(req: CreateRoomRequest, user_id: CurrentUserId):
     return CreateRoomResponse(
         room_name=room_name,
         token=token.to_jwt(),
-        livekit_url=settings.livekit_url,
+        livekit_url=lk_ws_url,
     )

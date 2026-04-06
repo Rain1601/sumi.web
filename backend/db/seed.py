@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.config import settings
 from backend.db.engine import async_session, init_db
-from backend.db.models import Agent, ProviderModel, gen_uuid
+from backend.db.models import Agent, AgentTool, ProviderModel, gen_uuid
 
 
 # ─── SOTA Models (via AIHubMix) ─────────────────────────────────────────────
@@ -115,7 +115,7 @@ DEFAULT_AGENTS = [
         nlp_provider="anthropic", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
-        tools=["get_current_datetime"],
+        tools=["get_current_datetime", "get_weather", "web_search"],
         interruption_policy="always",
         language="auto",
         opening_line="你好，我是Sumi，有什么可以帮你的吗？",
@@ -184,6 +184,34 @@ async def seed():
                 continue
             session.add(agent)
             print(f"  + Agent: {agent.name_en}")
+
+        # Seed tools for default agent
+        default_tools = [
+            AgentTool(
+                id="tool-weather", agent_id="default", name="get_weather",
+                tool_id="get_weather", description="查询城市天气",
+                parameters_schema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]},
+            ),
+            AgentTool(
+                id="tool-search", agent_id="default", name="web_search",
+                tool_id="web_search", description="搜索互联网信息",
+                parameters_schema={"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+            ),
+            AgentTool(
+                id="tool-datetime", agent_id="default", name="get_current_datetime",
+                tool_id="get_current_datetime", description="获取当前日期时间",
+                parameters_schema={"type": "object", "properties": {"timezone": {"type": "string"}}, "required": []},
+            ),
+        ]
+        for tool in default_tools:
+            existing = await session.execute(
+                select(AgentTool).where(AgentTool.id == tool.id)
+            )
+            if existing.scalar_one_or_none():
+                print(f"  Tool '{tool.id}' exists, skipping")
+                continue
+            session.add(tool)
+            print(f"  + Tool: {tool.name} (agent={tool.agent_id})")
 
         await session.commit()
     print("\nSeed complete.")

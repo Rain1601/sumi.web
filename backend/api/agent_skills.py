@@ -15,6 +15,11 @@ class SkillCreate(BaseModel):
     code: str
     description: str | None = None
     content: str | None = None
+    skill_type: str = "free"
+    qa_pairs: dict | None = None
+    logic_tree: dict | None = None
+    entry_prompt: str | None = None
+    exit_conditions: dict | None = None
     sort_order: int = 0
 
 
@@ -23,6 +28,11 @@ class SkillUpdate(BaseModel):
     code: str | None = None
     description: str | None = None
     content: str | None = None
+    skill_type: str | None = None
+    qa_pairs: dict | None = None
+    logic_tree: dict | None = None
+    entry_prompt: str | None = None
+    exit_conditions: dict | None = None
     sort_order: int | None = None
 
 
@@ -33,6 +43,11 @@ class SkillResponse(BaseModel):
     code: str
     description: str | None
     content: str | None
+    skill_type: str = "free"
+    qa_pairs: dict | None = None
+    logic_tree: dict | None = None
+    entry_prompt: str | None = None
+    exit_conditions: dict | None = None
     sort_order: int
 
 
@@ -56,7 +71,10 @@ async def list_skills(agent_id: str, db: DbSession):
     return [
         SkillResponse(
             id=s.id, agent_id=s.agent_id, name=s.name, code=s.code,
-            description=s.description, content=s.content, sort_order=s.sort_order,
+            description=s.description, content=s.content,
+            skill_type=s.skill_type, qa_pairs=s.qa_pairs, logic_tree=s.logic_tree,
+            entry_prompt=s.entry_prompt, exit_conditions=s.exit_conditions,
+            sort_order=s.sort_order,
         )
         for s in result.scalars().all()
     ]
@@ -73,6 +91,11 @@ async def create_skill(agent_id: str, req: SkillCreate, db: DbSession):
         code=req.code,
         description=req.description,
         content=req.content,
+        skill_type=req.skill_type,
+        qa_pairs=req.qa_pairs,
+        logic_tree=req.logic_tree,
+        entry_prompt=req.entry_prompt,
+        exit_conditions=req.exit_conditions,
         sort_order=req.sort_order,
     )
     db.add(skill)
@@ -95,7 +118,8 @@ async def update_skill(agent_id: str, skill_id: str, req: SkillUpdate, db: DbSes
     if not skill:
         raise HTTPException(404, "Skill not found")
 
-    for field in ["name", "code", "description", "content", "sort_order"]:
+    for field in ["name", "code", "description", "content", "skill_type",
+                  "qa_pairs", "logic_tree", "entry_prompt", "exit_conditions", "sort_order"]:
         value = getattr(req, field)
         if value is not None:
             setattr(skill, field, value)

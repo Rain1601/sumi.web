@@ -1,11 +1,16 @@
 """Agent Tools CRUD API."""
 
+import time
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from backend.api.deps import DbSession
 from backend.db.models import Agent, AgentTool, gen_uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -122,3 +127,49 @@ async def delete_tool(agent_id: str, tool_config_id: str, db: DbSession):
     await db.delete(tool)
     await db.commit()
     return {"ok": True}
+
+
+# ─── Tool Execution (Test/Run) ──────────────────────────────────
+
+class ToolRunRequest(BaseModel):
+    params: dict = {}
+
+
+class ToolRunResponse(BaseModel):
+    success: bool
+    output: str
+    data: dict = {}
+    duration_ms: float
+
+
+@router.post("/run/{tool_id}", response_model=ToolRunResponse)
+async def run_tool(tool_id: str, req: ToolRunRequest):
+    """Execute a tool directly for testing. No agent context required."""
+    from backend.agents.tools.registry import tool_registry
+    from backend.agents.tools.base import ToolContext
+
+    tool = tool_registry.get(tool_id)
+    if not tool:
+        raise HTTPException(404, f"Tool '{tool_id}' not found in registry")
+
+    context = ToolContext(
+        user_id="test_user",
+        conversation_id="test",
+        agent_id="test",
+    )
+
+    t0 = time.monotonic()
+    try:
+        result = await tool.execute(req.params, context)
+    except Exception as e:
+        logger.error(f"Tool execution failed: {e}")
+        raise HTTPException(500, f"Tool execution failed: {str(e)[:200]}")
+
+    duration_ms = round((time.monotonic() - t0) * 1000, 1)
+
+    return ToolRunResponse(
+        success=result.success,
+        output=result.output,
+        data=result.data,
+        duration_ms=duration_ms,
+    )
