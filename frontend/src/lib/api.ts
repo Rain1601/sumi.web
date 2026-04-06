@@ -29,6 +29,7 @@ export interface Agent {
   description_zh: string | null;
   description_en: string | null;
   system_prompt: string;
+  goal: string | null;
   opening_line: string | null;
   user_prompt: string | null;
   version: number;
@@ -49,8 +50,47 @@ export interface Agent {
   voiceprint_enabled: boolean;
   language: string;
   is_active: boolean;
+  // Task Chain architecture fields
+  role: string | null;
+  task_chain: TaskChainConfig | null;
+  rules: RuleInline[] | null;
+  optimization: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface TaskDef {
+  id: string;
+  name: string;
+  skill_code?: string;
+  goal: string;
+  success_condition?: string;
+  max_turns?: number;
+  on_success?: string;
+  on_failure?: string;
+  on_timeout?: string;
+  terminal?: boolean;
+}
+
+export interface TaskChainConfig {
+  tasks: TaskDef[];
+  entry_task: string;
+}
+
+export interface RuleInline {
+  rule_type: "forbidden" | "required" | "format";
+  content: string;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export interface AgentRule {
+  id: string;
+  agent_id: string;
+  rule_type: "forbidden" | "required" | "format";
+  content: string;
+  priority: number;
+  is_active: boolean;
 }
 
 export interface AgentVariable {
@@ -72,6 +112,11 @@ export interface AgentSkill {
   code: string;
   description: string;
   content: string;
+  skill_type?: "free" | "qa" | "logic_tree";
+  qa_pairs?: Record<string, unknown>;
+  logic_tree?: Record<string, unknown>;
+  entry_prompt?: string;
+  exit_conditions?: Record<string, unknown>;
   sort_order: number;
   created_at?: string;
   updated_at?: string;
@@ -207,8 +252,38 @@ export async function duplicateAgent(id: string): Promise<Agent> {
   return fetchAPI(`/api/agents/${id}/duplicate`, { method: "POST" });
 }
 
-export async function publishAgent(id: string): Promise<Agent> {
-  return fetchAPI(`/api/agents/${id}/publish`, { method: "POST" });
+export async function publishAgent(id: string, changeSummary?: string): Promise<Agent> {
+  return fetchAPI(`/api/agents/${id}/publish`, {
+    method: "POST",
+    body: JSON.stringify({ change_summary: changeSummary || null }),
+  });
+}
+
+// ─── Agent Versions ────────────────────────────────
+
+export interface AgentVersionSummary {
+  id: string;
+  agent_id: string;
+  version: number;
+  change_summary: string | null;
+  published_by: string | null;
+  created_at: string | null;
+}
+
+export interface AgentVersionDetail extends AgentVersionSummary {
+  snapshot: Record<string, unknown>;
+}
+
+export async function listAgentVersions(agentId: string): Promise<AgentVersionSummary[]> {
+  return fetchAPI(`/api/agents/${agentId}/versions`);
+}
+
+export async function getAgentVersion(agentId: string, versionId: string): Promise<AgentVersionDetail> {
+  return fetchAPI(`/api/agents/${agentId}/versions/${versionId}`);
+}
+
+export async function rollbackAgentVersion(agentId: string, versionId: string): Promise<Agent> {
+  return fetchAPI(`/api/agents/${agentId}/versions/${versionId}/rollback`, { method: "POST" });
 }
 
 // ─── Agent Variables ────────────────────────────────
@@ -281,6 +356,276 @@ export async function updateAgentTool(agentId: string, toolId: string, data: Par
 
 export async function deleteAgentTool(agentId: string, toolId: string): Promise<void> {
   return fetchAPI(`/api/agents/${agentId}/tools/${toolId}`, { method: "DELETE" });
+}
+
+export interface ToolRunResult {
+  success: boolean;
+  output: string;
+  data: Record<string, unknown>;
+  duration_ms: number;
+}
+
+export async function runTool(toolId: string, params: Record<string, unknown> = {}): Promise<ToolRunResult> {
+  return fetchAPI(`/api/agents/run/${toolId}`, {
+    method: "POST",
+    body: JSON.stringify({ params }),
+  });
+}
+
+// ─── Agent Rules ───────────────────────────────────
+
+export async function listAgentRules(agentId: string): Promise<AgentRule[]> {
+  return fetchAPI(`/api/agents/${agentId}/rules`);
+}
+
+export async function createAgentRule(agentId: string, data: { rule_type: string; content: string; priority?: number }): Promise<AgentRule> {
+  return fetchAPI(`/api/agents/${agentId}/rules`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAgentRule(agentId: string, ruleId: string, data: Partial<AgentRule>): Promise<AgentRule> {
+  return fetchAPI(`/api/agents/${agentId}/rules/${ruleId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgentRule(agentId: string, ruleId: string): Promise<void> {
+  return fetchAPI(`/api/agents/${agentId}/rules/${ruleId}`, { method: "DELETE" });
+}
+
+// ─── Annotations ───────────────────────────────────
+
+export interface Annotation {
+  id: string;
+  conversation_id: string;
+  message_id: string | null;
+  turn_index: number | null;
+  annotation_type: string;
+  rating: number | null;
+  labels: string[] | null;
+  corrected_text: string | null;
+  expected_response: string | null;
+  notes: string | null;
+  annotator: string;
+}
+
+export async function listAnnotations(conversationId?: string): Promise<Annotation[]> {
+  const params = conversationId ? `?conversation_id=${conversationId}` : "";
+  return fetchAPI(`/api/annotations/${params}`);
+}
+
+export async function createAnnotation(data: Omit<Annotation, "id">): Promise<Annotation> {
+  return fetchAPI("/api/annotations/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAnnotation(id: string, data: Partial<Annotation>): Promise<Annotation> {
+  return fetchAPI(`/api/annotations/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAnnotation(id: string): Promise<void> {
+  return fetchAPI(`/api/annotations/${id}`, { method: "DELETE" });
+}
+
+// ─── Agent Audio Init (SSE) ────────────────────────
+
+export interface AudioInitEvent {
+  type: "progress" | "transcript" | "result" | "done" | "error";
+  data: Record<string, unknown>;
+}
+
+export async function initAgentFromAudio(
+  agentId: string,
+  file: File,
+  onEvent: (event: AudioInitEvent) => void,
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/agents/${agentId}/init-from-audio`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Upload failed: ${res.status} ${text || res.statusText}`);
+  }
+
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // Parse SSE events from buffer
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      let eventType = "message";
+      let data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+        else if (line.startsWith("data: ")) data = line.slice(6);
+      }
+      if (data) {
+        try {
+          onEvent({ type: eventType as AudioInitEvent["type"], data: JSON.parse(data) });
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+  }
+}
+
+// ─── Conversation Test ────────────────────────────────────
+
+export interface ConversationTestEvent {
+  type: "config" | "turn" | "progress" | "evaluation" | "done" | "error";
+  data: Record<string, unknown>;
+}
+
+export interface ConversationTestConfig {
+  scenario: string;
+  persona?: string;
+  max_turns?: number;
+  evaluate?: boolean;
+  model?: string;
+}
+
+export async function runConversationTest(
+  agentId: string,
+  config: ConversationTestConfig,
+  onEvent: (event: ConversationTestEvent) => void,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/agents/${agentId}/conversation-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Test failed: ${res.status} ${text || res.statusText}`);
+  }
+
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      let eventType = "message";
+      let data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+        else if (line.startsWith("data: ")) data = line.slice(6);
+      }
+      if (data) {
+        try {
+          onEvent({ type: eventType as ConversationTestEvent["type"], data: JSON.parse(data) });
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+  }
+}
+
+// ─── Voice Test ───────────────────────────────────────────
+
+export interface VoiceTestEvent {
+  type: "config" | "voice_turn" | "audio_status" | "progress" | "evaluation" | "done" | "error";
+  data: Record<string, unknown>;
+}
+
+export interface VoiceTestConfig {
+  scenario: string;
+  persona?: string;
+  max_turns?: number;
+  evaluate?: boolean;
+  model?: string;
+  audio_enabled?: boolean;
+  agent_tts_model_id?: string;
+  tester_tts_model_id?: string;
+}
+
+export async function runVoiceTest(
+  agentId: string,
+  config: VoiceTestConfig,
+  onEvent: (event: VoiceTestEvent) => void,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/agents/${agentId}/voice-test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Voice test failed: ${res.status} ${text || res.statusText}`);
+  }
+
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      let eventType = "message";
+      let data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+        else if (line.startsWith("data: ")) data = line.slice(6);
+      }
+      if (data) {
+        try {
+          onEvent({ type: eventType as VoiceTestEvent["type"], data: JSON.parse(data) });
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
+  }
 }
 
 export type { CreateRoomResponse };
