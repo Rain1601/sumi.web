@@ -37,6 +37,9 @@ class InterruptionData(BaseModel):
     position_ms: float
     agent_text_spoken: str = ""
     agent_text_cut: str = ""
+    is_interruption: bool = False
+    probability: float = 0.0
+    detection_delay_ms: float = 0.0
 
 class VoiceprintData(BaseModel):
     score: float
