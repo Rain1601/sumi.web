@@ -392,6 +392,11 @@
   top: 0; height: 36px; border-radius: 2px;
   box-shadow: 0 0 6px color-mix(in srgb, var(--red) 40%, transparent);
 }
+.tl-block-marker {
+  min-width: 2px !important; width: 2px !important;
+  border-radius: 1px;
+  border-left: none !important;
+}
 .tl-tooltip {
   position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
   background: var(--bg-elevated); border: 1px solid var(--border);

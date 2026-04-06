@@ -36,7 +36,7 @@ interface LatencySummary {
 
 /** A resolved time span on the timeline */
 interface TimelineBlock {
-  type: "vad" | "asr" | "nlp" | "tts" | "interruption" | "hangup";
+  type: "vad" | "asr" | "nlp" | "tts" | "interruption" | "hangup" | "tool" | "memory" | "error";
   startS: number; // seconds from session start
   durationS: number;
   label: string;
@@ -44,6 +44,8 @@ interface TimelineBlock {
   color: string;
   isInterruption?: boolean;
   probability?: number;
+  /** Sub-type marker for point events (TTFB, first-audio, etc.) */
+  marker?: "ttfb" | "first_audio" | "resume";
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -79,7 +81,10 @@ const LANE_COLORS: Record<string, string> = {
   asr: "var(--asr)",
   nlp: "var(--nlp)",
   tts: "var(--tts)",
+  tool: "var(--amber)",
+  memory: "var(--accent)",
   interruption: "var(--red)",
+  error: "var(--red)",
   hangup: "var(--red)",
 };
 
@@ -88,11 +93,14 @@ const LANE_LABELS: Record<string, string> = {
   asr: "ASR",
   nlp: "NLP",
   tts: "TTS",
+  tool: "Tools",
+  memory: "Memory",
   interruption: "Interruption",
+  error: "Errors",
   hangup: "Hangup",
 };
 
-const LANE_ORDER = ["vad", "asr", "nlp", "tts", "interruption"];
+const LANE_ORDER = ["vad", "asr", "nlp", "tts", "tool", "memory", "interruption", "error"];
 
 /* ─── Helpers ─── */
 
@@ -116,6 +124,7 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
     const data = ev.data || {};
 
     switch (ev.event_type) {
+      /* ─── VAD ─── */
       case "vad.speech_start":
         pending["vad"] = t;
         break;
@@ -126,20 +135,46 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         delete pending["vad"];
         break;
       }
+
+      /* ─── ASR ─── */
       case "asr.end": {
         const text = (data.transcript as string) || "";
-        const latency = (data.latency_ms as number) ?? 0;
+        const latency = (data.duration_ms as number) ?? (data.latency_ms as number) ?? 0;
         blocks.push({
           type: "asr", startS: Math.max(0, t - latency / 1000), durationS: latency / 1000 || 0.1,
           label: text.slice(0, 30), detail: text, color: LANE_COLORS.asr,
         });
         break;
       }
+
+      /* ─── NLP ─── */
       case "nlp.start":
         pending["nlp"] = t;
         break;
+      case "nlp.first_token": {
+        // TTFB marker — thin block on NLP lane
+        blocks.push({
+          type: "nlp", startS: t, durationS: 0.05,
+          label: "TTFB", detail: `First token at ${formatTime(t)}`,
+          color: "var(--nlp)", marker: "ttfb",
+        });
+        break;
+      }
+      case "nlp.end": {
+        // If we have a pending NLP start, close it with nlp.end
+        if (pending["nlp"] != null) {
+          const dur = (data.duration_ms as number ?? 0) / 1000;
+          blocks.push({
+            type: "nlp", startS: pending["nlp"], durationS: dur || (t - pending["nlp"]),
+            label: `${data.token_count ?? ""}tok`, color: LANE_COLORS.nlp,
+            detail: `tokens=${data.token_count ?? "?"} chunks=${data.total_chunks ?? "?"} ctx=${data.ctx_tokens_est ?? "?"}`,
+          });
+          delete pending["nlp"];
+        }
+        break;
+      }
       case "tts.start": {
-        // NLP ends when TTS starts
+        // Fallback: if nlp.end didn't fire, close NLP here
         if (pending["nlp"] != null) {
           blocks.push({
             type: "nlp", startS: pending["nlp"], durationS: t - pending["nlp"],
@@ -150,9 +185,19 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         pending["tts"] = t;
         break;
       }
+
+      /* ─── TTS ─── */
+      case "tts.first_audio": {
+        blocks.push({
+          type: "tts", startS: t, durationS: 0.05,
+          label: "1st audio", detail: `First audio frame at ${formatTime(t)}`,
+          color: "var(--tts)", marker: "first_audio",
+        });
+        break;
+      }
       case "tts.end": {
         const start = pending["tts"] ?? t;
-        const dur = (data.total_ms as number ?? 0) / 1000;
+        const dur = (data.total_ms as number ?? (data.duration_ms as number) ?? 0) / 1000;
         blocks.push({
           type: "tts", startS: start, durationS: dur || (t - start),
           label: (data.text as string || "").slice(0, 30), detail: data.text as string, color: LANE_COLORS.tts,
@@ -160,7 +205,48 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         delete pending["tts"];
         break;
       }
-      case "interruption": {
+
+      /* ─── Tool calls ─── */
+      case "nlp.tool_call": {
+        const toolName = (data.tool_name as string) || (data.request as Record<string, unknown>)?.tool_name as string || "tool";
+        const durMs = data.duration_ms as number ?? ev.duration_ms ?? 0;
+        const result = data.result as Record<string, unknown>;
+        const success = result?.success as boolean ?? true;
+        blocks.push({
+          type: "tool", startS: Math.max(0, t - durMs / 1000), durationS: durMs / 1000 || 0.2,
+          label: toolName,
+          detail: `${toolName} ${success ? "ok" : "FAIL"} ${durMs.toFixed(0)}ms`,
+          color: success ? LANE_COLORS.tool : "var(--red)",
+        });
+        break;
+      }
+
+      /* ─── Memory ─── */
+      case "memory.query": {
+        const facts = data.facts_count as number ?? 0;
+        const vectors = data.vectors_count as number ?? 0;
+        blocks.push({
+          type: "memory", startS: t, durationS: 0.2,
+          label: "Query",
+          detail: `facts=${facts} vectors=${vectors}`,
+          color: LANE_COLORS.memory,
+        });
+        break;
+      }
+      case "memory.update": {
+        const segs = data.segments_count as number ?? 0;
+        const facts = data.facts_count as number ?? 0;
+        blocks.push({
+          type: "memory", startS: t, durationS: 0.2,
+          label: "Save",
+          detail: `segments=${segs} facts=${facts}`,
+          color: LANE_COLORS.memory,
+        });
+        break;
+      }
+
+      /* ─── Interruptions ─── */
+      case "pipeline.interruption": {
         const isTrue = data.is_interruption as boolean;
         const prob = data.probability as number ?? 0;
         blocks.push({
@@ -172,6 +258,29 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         });
         break;
       }
+      case "pipeline.interruption_resume": {
+        blocks.push({
+          type: "interruption", startS: t, durationS: 0.15,
+          label: "Resume", detail: `resumed=${data.resumed}`,
+          color: "var(--green)", marker: "resume",
+        });
+        break;
+      }
+
+      /* ─── Errors ─── */
+      case "error": {
+        const source = data.source as string ?? "";
+        const message = data.message as string ?? "";
+        blocks.push({
+          type: "error", startS: t, durationS: 0.4,
+          label: source || "Error",
+          detail: message.slice(0, 200),
+          color: LANE_COLORS.error,
+        });
+        break;
+      }
+
+      /* ─── Lifecycle ─── */
       case "hangup.detected": {
         const goodbyes = data.consecutive_goodbyes as number ?? 0;
         blocks.push({
@@ -253,17 +362,19 @@ function TimelineLane({
           const left = totalS > 0 ? (b.startS / totalS) * 100 : 0;
           const width = totalS > 0 ? Math.max((b.durationS / totalS) * 100, 0.4) : 0;
           const isInterrupt = b.type === "interruption";
+          const isMarker = !!b.marker;
 
           return (
             <div
               key={i}
-              className={`tl-block ${isInterrupt ? "tl-block-interrupt" : ""}`}
+              className={`tl-block ${isInterrupt ? "tl-block-interrupt" : ""} ${isMarker ? "tl-block-marker" : ""}`}
               style={{
                 left: `${left}%`,
-                width: isInterrupt ? "3px" : `${width}%`,
+                width: isInterrupt || isMarker ? "3px" : `${width}%`,
                 background: b.color,
-                opacity: isInterrupt && !b.isInterruption ? 0.5 : 0.85,
+                opacity: (isInterrupt && !b.isInterruption) ? 0.5 : isMarker ? 0.7 : 0.85,
                 cursor: onBlockClick ? "pointer" : undefined,
+                borderLeft: isMarker ? `2px dashed ${b.color}` : undefined,
               }}
               onMouseEnter={() => setHoveredId(i)}
               onMouseLeave={() => setHoveredId(null)}
@@ -271,8 +382,8 @@ function TimelineLane({
             >
               {hoveredId === i && (
                 <div className="tl-tooltip">
-                  <div className="font-medium">{LANE_LABELS[b.type]}</div>
-                  {b.label && <div>{b.label}</div>}
+                  <div className="font-medium">{b.marker ? b.label : LANE_LABELS[b.type]}</div>
+                  {!b.marker && b.label && <div>{b.label}</div>}
                   <div className="mono" style={{ color: "var(--fg-3)" }}>
                     {formatTime(b.startS)} / {(b.durationS * 1000).toFixed(0)}ms
                   </div>
