@@ -389,10 +389,10 @@ async def entrypoint(ctx: JobContext):
     )
 
     if has_builtin_vad(stt_info):
-        logger.info("[VAD] Disabled — STT has built-in VAD")
+        logger.info("[VAD] Skipped Silero — STT provider has built-in server-side VAD")
     else:
-        session_kwargs["vad"] = silero.VAD.load(min_speech_duration=0.05, min_silence_duration=0.3)
-        logger.info("[VAD] Using Silero VAD")
+        session_kwargs["vad"] = silero.VAD.load(min_speech_duration=0.1, min_silence_duration=0.6)
+        logger.info("[VAD] Using Silero VAD (speech≥0.1s, silence≥0.6s)")
 
     session = AgentSession(**session_kwargs)
     logger.info(f"[WORKER] Interruption: mode=adaptive enabled={allow_interrupts}")

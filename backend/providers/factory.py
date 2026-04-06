@@ -178,8 +178,12 @@ def create_tts(model_info: dict | None) -> tts.TTS:
 
 
 def has_builtin_vad(model_info: dict | None) -> bool:
-    """LiveKit AgentSession always needs a local VAD to know when to start/stop
-    sending audio to STT. Even if STT has server-side VAD, the local VAD is
-    needed to drive the turn-taking state machine. So always return False.
+    """Return True for providers with reliable server-side VAD (DashScope Realtime,
+    Paraformer), so LiveKit skips Silero and relies on the STT's own VAD events.
+    This avoids dual-VAD conflicts that fragment Chinese speech.
     """
+    m = model_info or {}
+    provider = m.get("provider_name", "")
+    if provider == "dashscope":
+        return True  # DashScope Realtime & Paraformer both have server-side VAD
     return False
