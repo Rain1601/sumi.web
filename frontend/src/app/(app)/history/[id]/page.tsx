@@ -172,6 +172,16 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         });
         break;
       }
+      case "hangup.detected": {
+        const goodbyes = data.consecutive_goodbyes as number ?? 0;
+        blocks.push({
+          type: "hangup", startS: t, durationS: 0.5,
+          label: "Hangup Detected",
+          detail: `LLM detected ${goodbyes} consecutive goodbyes`,
+          color: "var(--red)",
+        });
+        break;
+      }
       case "session.end": {
         const totalMs = data.total_duration_ms as number ?? 0;
         const turns = data.total_turns as number ?? 0;

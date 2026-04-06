@@ -309,6 +309,14 @@ class SessionTracer:
             "vectors_count": vectors_count,
         })
 
+    def record_hangup(self, consecutive_goodbyes: int, recent_turns: list[dict]):
+        """Record hangup detection event — LLM determined conversation should end."""
+        self._emit("hangup.detected", result={
+            "consecutive_goodbyes": consecutive_goodbyes,
+            "recent_turns": recent_turns,
+            "turn_index": self._turn_index,
+        })
+
     def record_memory_save(self, segments_count: int, facts_count: int):
         self._emit("memory.update", result={
             "segments_count": segments_count,

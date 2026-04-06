@@ -423,6 +423,11 @@ async def entrypoint(ctx: JobContext):
         """Poll for LLM hangup decision and disconnect gracefully."""
         while not hangup.should_hangup:
             await asyncio.sleep(0.5)
+        # Emit hangup trace event before disconnecting
+        tracer.record_hangup(
+            consecutive_goodbyes=hangup._consecutive_goodbyes,
+            recent_turns=hangup._recent_turns[-4:],
+        )
         # Brief pause to let final TTS finish playing
         await asyncio.sleep(1.5)
         logger.info(f"[HANGUP] Disconnecting room={ctx.room.name}")
