@@ -36,7 +36,7 @@ interface LatencySummary {
 
 /** A resolved time span on the timeline */
 interface TimelineBlock {
-  type: "vad" | "asr" | "nlp" | "tts" | "interruption";
+  type: "vad" | "asr" | "nlp" | "tts" | "interruption" | "hangup";
   startS: number; // seconds from session start
   durationS: number;
   label: string;
@@ -80,6 +80,7 @@ const LANE_COLORS: Record<string, string> = {
   nlp: "var(--nlp)",
   tts: "var(--tts)",
   interruption: "var(--red)",
+  hangup: "var(--red)",
 };
 
 const LANE_LABELS: Record<string, string> = {
@@ -88,6 +89,7 @@ const LANE_LABELS: Record<string, string> = {
   nlp: "NLP",
   tts: "TTS",
   interruption: "Interruption",
+  hangup: "Hangup",
 };
 
 const LANE_ORDER = ["vad", "asr", "nlp", "tts", "interruption"];
@@ -170,6 +172,17 @@ function buildTimeline(events: TraceEvent[], sessionStart: number): TimelineBloc
         });
         break;
       }
+      case "session.end": {
+        const totalMs = data.total_duration_ms as number ?? 0;
+        const turns = data.total_turns as number ?? 0;
+        blocks.push({
+          type: "hangup", startS: t, durationS: 0.5,
+          label: "Session End",
+          detail: `turns=${turns} duration=${(totalMs / 1000).toFixed(1)}s`,
+          color: "var(--red)",
+        });
+        break;
+      }
     }
   }
 
@@ -206,17 +219,26 @@ function TimelineLane({
   lane,
   blocks,
   totalS,
+  onBlockClick,
 }: {
   lane: string;
   blocks: TimelineBlock[];
   totalS: number;
+  onBlockClick?: (timeS: number) => void;
 }) {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   return (
     <div className="tl-lane" data-lane={lane}>
       <div className="tl-lane-label">{LANE_LABELS[lane]}</div>
-      <div className="tl-lane-track">
+      <div className="tl-lane-track" style={{ cursor: onBlockClick ? "pointer" : undefined }}
+        onClick={(e) => {
+          if (!onBlockClick || totalS <= 0) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const ratio = x / rect.width;
+          onBlockClick(ratio * totalS);
+        }}>
         {blocks.map((b, i) => {
           const left = totalS > 0 ? (b.startS / totalS) * 100 : 0;
           const width = totalS > 0 ? Math.max((b.durationS / totalS) * 100, 0.4) : 0;
@@ -231,9 +253,11 @@ function TimelineLane({
                 width: isInterrupt ? "3px" : `${width}%`,
                 background: b.color,
                 opacity: isInterrupt && !b.isInterruption ? 0.5 : 0.85,
+                cursor: onBlockClick ? "pointer" : undefined,
               }}
               onMouseEnter={() => setHoveredId(i)}
               onMouseLeave={() => setHoveredId(null)}
+              onClick={() => onBlockClick?.(b.startS)}
             >
               {hoveredId === i && (
                 <div className="tl-tooltip">
@@ -253,7 +277,7 @@ function TimelineLane({
   );
 }
 
-function Timeline({ blocks, totalS, cursorS }: { blocks: TimelineBlock[]; totalS: number; cursorS?: number | null }) {
+function Timeline({ blocks, totalS, cursorS, onBlockClick }: { blocks: TimelineBlock[]; totalS: number; cursorS?: number | null; onBlockClick?: (timeS: number) => void }) {
   const laneBlocks = useMemo(() => {
     const map: Record<string, TimelineBlock[]> = {};
     for (const l of LANE_ORDER) map[l] = [];
@@ -304,7 +328,19 @@ function Timeline({ blocks, totalS, cursorS }: { blocks: TimelineBlock[]; totalS
       {/* Lanes with cursor overlay */}
       <div style={{ position: "relative" }}>
         {activeLanes.map((lane) => (
-          <TimelineLane key={lane} lane={lane} blocks={laneBlocks[lane]} totalS={totalS} />
+          <TimelineLane key={lane} lane={lane} blocks={laneBlocks[lane]} totalS={totalS} onBlockClick={onBlockClick} />
+        ))}
+
+        {/* Session end marker (hangup line) */}
+        {blocks.filter(b => b.type === "hangup").map((b, i) => (
+          <div
+            key={`hangup-${i}`}
+            style={{
+              position: "absolute", top: 0, bottom: 0, width: 2, zIndex: 8, pointerEvents: "none",
+              left: `calc(52px + (100% - 52px) * ${b.startS / totalS})`,
+              background: "var(--red)", opacity: 0.6,
+            }}
+          />
         ))}
 
         {/* Cursor line synced to current message */}
@@ -375,13 +411,17 @@ function ConversationPanel({
   interruptions,
   sessionStart,
   onSelectTime,
+  currentIdx,
+  onSetIdx,
 }: {
   messages: Message[];
   interruptions: TimelineBlock[];
   sessionStart: number;
   onSelectTime?: (timeS: number) => void;
+  currentIdx: number;
+  onSetIdx: (idx: number) => void;
 }) {
-  const [currentIdx, setCurrentIdx] = useState(0);
+  const setCurrentIdx = onSetIdx;
 
   // Merge messages and interruptions into a single timeline
   type Item = { type: "message"; msg: Message; ts: number } | { type: "interrupt"; block: TimelineBlock; ts: number };
@@ -644,6 +684,34 @@ export default function ConversationDetailPage() {
   const blocks = useMemo(() => buildTimeline(events, sessionStart), [events, sessionStart]);
   const interruptions = useMemo(() => blocks.filter((b) => b.type === "interruption"), [blocks]);
   const [cursorS, setCursorS] = useState<number | null>(null);
+  const [convIdx, setConvIdx] = useState(0);
+
+  // Build items list (same as ConversationPanel) for timeline→conversation mapping
+  const convItems = useMemo(() => {
+    type Item = { ts: number };
+    const result: Item[] = [];
+    for (const m of messages) {
+      result.push({ ts: new Date(m.started_at).getTime() / 1000 });
+    }
+    for (const b of interruptions) {
+      if (b.isInterruption) result.push({ ts: sessionStart + b.startS });
+    }
+    result.sort((a, b) => a.ts - b.ts);
+    return result;
+  }, [messages, interruptions, sessionStart]);
+
+  // Timeline click → jump to nearest conversation item
+  const handleTimelineClick = useCallback((timeS: number) => {
+    if (convItems.length === 0) return;
+    const clickTs = sessionStart + timeS;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < convItems.length; i++) {
+      const dist = Math.abs(convItems[i].ts - clickTs);
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    }
+    setConvIdx(bestIdx);
+  }, [convItems, sessionStart]);
 
   if (loading) {
     return (
@@ -691,12 +759,12 @@ export default function ConversationDetailPage() {
 
       {/* Pipeline Timeline — full width */}
       <div className="mb-5 animate-in" style={{ animationDelay: "0.06s" }}>
-        <Timeline blocks={blocks} totalS={totalS} cursorS={cursorS} />
+        <Timeline blocks={blocks} totalS={totalS} cursorS={cursorS} onBlockClick={handleTimelineClick} />
       </div>
 
       {/* Conversation panel — full width */}
       <div className="animate-in" style={{ animationDelay: "0.08s", maxWidth: 640 }}>
-        <ConversationPanel messages={messages} interruptions={interruptions} sessionStart={sessionStart} onSelectTime={setCursorS} />
+        <ConversationPanel messages={messages} interruptions={interruptions} sessionStart={sessionStart} onSelectTime={setCursorS} currentIdx={convIdx} onSetIdx={setConvIdx} />
       </div>
 
       {/* Raw events count */}
