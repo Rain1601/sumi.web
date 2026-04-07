@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "/Users/rain/miniconda3/envs/sumi/bin/uvicorn",
+      "runtimeArgs": ["backend.main:app", "--reload", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "/usr/local/bin/pnpm",
+      "runtimeArgs": ["--dir", "frontend", "dev"],
+      "env": { "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" },
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "/Users/rain/miniconda3/envs/sumi/bin/python",
+      "runtimeArgs": ["-m", "backend.pipeline.worker", "start"],
+      "port": 8089
+    }
+  ]
+}

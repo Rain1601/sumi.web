@@ -94,7 +94,7 @@ async def admin_seed():
                 select(func.count()).select_from(Agent).where(Agent.tenant_id == m.tenant_id)
             )
             tenant_count = count.scalar() or 0
-            if tenant_count < sys_agent_count:
+            if tenant_count <= sys_agent_count:  # <= to force refresh templates
                 # Delete old agents + models, then re-clone fresh
                 from backend.db.models import ProviderModel as PM
                 await db.execute(Agent.__table__.delete().where(Agent.tenant_id == m.tenant_id))
