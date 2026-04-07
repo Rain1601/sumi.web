@@ -141,7 +141,7 @@ jobs:
             --cpu=2 --memory=1Gi \
             --min-instances=1 --max-instances=2 \
             --no-cpu-throttling \
-            --startup-cpu-boost \
+            --cpu-boost \
             --add-cloudsql-instances=${CONNECTION_NAME} \
             --set-secrets="DATABASE_URL=kodama-database-url:latest,LIVEKIT_URL=kodama-livekit-url:latest,LIVEKIT_API_KEY=kodama-livekit-api-key:latest,LIVEKIT_API_SECRET=kodama-livekit-api-secret:latest,AIHUBMIX_API_KEY=kodama-aihubmix-api-key:latest,DASHSCOPE_API_KEY=kodama-dashscope-api-key:latest,FIREBASE_CREDENTIALS_JSON=kodama-firebase-credentials:latest" \
             --set-env-vars="APP_ENV=production,APP_DEBUG=false,AIHUBMIX_BASE_URL=https://aihubmix.com/v1" \
