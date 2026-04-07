@@ -186,17 +186,19 @@ async def get_auth_context(
     # First login — auto-provision: create personal tenant + clone default data
     from backend.db.models import gen_uuid
 
-    # Ensure user record exists
+    # Ensure user record exists (must flush before FK references)
     user_result = await db.execute(select(User).where(User.id == user_id))
     if not user_result.scalar_one_or_none():
         user = User(id=user_id, preferred_language="zh")
         db.add(user)
+        await db.flush()  # User must exist before TenantMember FK
 
     # Create personal tenant
     tenant_id = gen_uuid()
     slug = f"personal-{user_id[:8]}"
     tenant = Tenant(id=tenant_id, name="个人空间", slug=slug)
     db.add(tenant)
+    await db.flush()  # Tenant must exist before TenantMember FK
 
     # Add user as owner
     member = TenantMember(
