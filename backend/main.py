@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Sumi.web",
+    title="Kodama",
     description="Real-time Voice AI Agent Platform",
     version="0.1.0",
     lifespan=lifespan,
@@ -56,6 +56,43 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok", "env": settings.app_env}
+
+
+@app.post("/api/admin/seed")
+async def admin_seed():
+    """One-time seed: populate default-tenant with template agents and models.
+    Then clone to all existing user tenants that have no agents yet."""
+    from backend.db.seed import seed
+    await seed(skip_init=True)
+
+    # Clone to existing tenants that have 0 agents
+    from sqlalchemy import select, func
+    from backend.db.engine import async_session
+    from backend.db.models import Agent, Tenant, TenantMember
+    from backend.api.deps import _clone_default_data, SYSTEM_TENANT_ID
+
+    cloned_count = 0
+    async with async_session() as db:
+        # Find all personal tenants (not the system tenant)
+        result = await db.execute(
+            select(TenantMember).where(TenantMember.role == "owner")
+        )
+        members = result.scalars().all()
+
+        for m in members:
+            if m.tenant_id == SYSTEM_TENANT_ID:
+                continue
+            # Check if tenant already has agents
+            count = await db.execute(
+                select(func.count()).select_from(Agent).where(Agent.tenant_id == m.tenant_id)
+            )
+            if count.scalar() == 0:
+                await _clone_default_data(m.tenant_id, m.user_id, db)
+                cloned_count += 1
+
+        await db.commit()
+
+    return {"status": "ok", "message": f"Seed complete. Cloned to {cloned_count} existing tenants."}
 
 
 # Register routers

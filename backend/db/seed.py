@@ -54,6 +54,9 @@ DEFAULT_MODELS = [
     ProviderModel(id="nlp-qwen-max", tenant_id=DEFAULT_TENANT_ID, name="Qwen Max", provider_type="nlp",
                   provider_name="qwen", model_name="qwen-max",
                   config={"temperature": 0.7, "max_tokens": 4096}),
+    ProviderModel(id="nlp-qwen25-72b-ds", tenant_id=DEFAULT_TENANT_ID, name="Qwen2.5-72B (DashScope)", provider_type="nlp",
+                  provider_name="dashscope", model_name="qwen2.5-72b-instruct",
+                  config={"temperature": 0.7, "max_tokens": 4096}),
 
     # === ASR (Speech-to-Text) ===
     ProviderModel(id="asr-paraformer-v2", tenant_id=DEFAULT_TENANT_ID, name="Paraformer Realtime v2", provider_type="asr",
@@ -70,6 +73,9 @@ DEFAULT_MODELS = [
                   config={"language": "zh", "max_sentence_silence": 600}),
     ProviderModel(id="asr-qwen3-flash", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Flash", provider_type="asr",
                   provider_name="dashscope", model_name="qwen3-asr-flash-realtime",
+                  config={"language": "zh", "max_sentence_silence": 600}),
+    ProviderModel(id="asr-qwen3-realtime", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Realtime", provider_type="asr",
+                  provider_name="dashscope", model_name="qwen3-asr-realtime",
                   config={"language": "zh", "max_sentence_silence": 600}),
     ProviderModel(id="asr-whisper", tenant_id=DEFAULT_TENANT_ID, name="Whisper Large", provider_type="asr",
                   provider_name="openai", model_name="whisper-1",
@@ -117,7 +123,7 @@ DEFAULT_AGENTS = [
         description_zh="通用语音对话助手，支持中英双语",
         description_en="General-purpose voice assistant with bilingual support",
         system_prompt=(
-            "You are Sumi, a friendly and helpful voice assistant. "
+            "You are Kodama, a friendly and helpful voice assistant. "
             "You speak naturally and concisely. "
             "You can communicate in both Chinese and English, "
             "and you automatically respond in the language the user speaks. "
@@ -135,7 +141,7 @@ DEFAULT_AGENTS = [
         tools=["get_current_datetime", "get_weather", "web_search"],
         interruption_policy="always",
         language="auto",
-        opening_line="你好，我是Sumi，有什么可以帮你的吗？",
+        opening_line="你好，我是Kodama，有什么可以帮你的吗？",
         test_scenario="用户想查询明天北京的天气，然后问一些日常闲聊话题，比如推荐一部电影。",
         status="published",
         version=1,
@@ -150,7 +156,7 @@ DEFAULT_AGENTS = [
         description_zh="英语口语练习助手，帮助提升英语会话能力",
         description_en="English speaking practice assistant",
         system_prompt=(
-            "You are an English language tutor named Sumi. "
+            "You are an English language tutor named Kodama. "
             "Always respond in English. If the user speaks Chinese, "
             "gently encourage them to try in English and provide the English translation. "
             "Correct grammar mistakes naturally within the conversation. "
@@ -168,7 +174,7 @@ DEFAULT_AGENTS = [
         tools=["get_current_datetime"],
         interruption_policy="sentence_boundary",
         language="en",
-        opening_line="Hi there! I'm Sumi, your English tutor. What would you like to practice today?",
+        opening_line="Hi there! I'm Kodama, your English tutor. What would you like to practice today?",
         test_scenario="用户是中国学生，英语基础一般，想练习点外卖和问路的日常场景对话。偶尔会用中文。",
         status="published",
         version=1,
@@ -564,10 +570,11 @@ DEFAULT_AGENTS = [
 ]
 
 
-async def seed():
-    if "sqlite" in settings.database_url:
-        settings.db_path.mkdir(parents=True, exist_ok=True)
-    await init_db()
+async def seed(skip_init: bool = False):
+    if not skip_init:
+        if "sqlite" in settings.database_url:
+            settings.db_path.mkdir(parents=True, exist_ok=True)
+        await init_db()
 
     async with async_session() as session:
         from sqlalchemy import select

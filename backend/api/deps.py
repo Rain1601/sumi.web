@@ -74,6 +74,94 @@ async def get_current_user_id(
         return _verify_supabase_token(token)
 
 
+SYSTEM_TENANT_ID = "default-tenant"
+
+
+async def _clone_default_data(tenant_id: str, user_id: str, db: AsyncSession):
+    """Clone all agents and models from the system tenant to a new user's tenant."""
+    import logging
+    from sqlalchemy import select
+    from backend.db.models import Agent, ProviderModel, gen_uuid
+
+    logger = logging.getLogger("kodama.auth")
+
+    # 1. Clone ProviderModels, build old_id → new_id mapping
+    result = await db.execute(
+        select(ProviderModel).where(ProviderModel.tenant_id == SYSTEM_TENANT_ID)
+    )
+    system_models = result.scalars().all()
+    model_id_map: dict[str, str] = {}  # old_id → new_id
+
+    for m in system_models:
+        new_id = gen_uuid()
+        model_id_map[m.id] = new_id
+        clone = ProviderModel(
+            id=new_id,
+            tenant_id=tenant_id,
+            name=m.name,
+            provider_type=m.provider_type,
+            provider_name=m.provider_name,
+            api_key="",
+            model_name=m.model_name,
+            config=m.config or {},
+            is_active=m.is_active,
+        )
+        db.add(clone)
+
+    logger.info(f"Cloned {len(system_models)} models to tenant {tenant_id[:8]}")
+
+    # 2. Clone Agents, remap model references
+    result = await db.execute(
+        select(Agent).where(Agent.tenant_id == SYSTEM_TENANT_ID)
+    )
+    system_agents = result.scalars().all()
+
+    for a in system_agents:
+        new_id = gen_uuid()
+        clone = Agent(
+            id=new_id,
+            tenant_id=tenant_id,
+            created_by=user_id,
+            name_zh=a.name_zh,
+            name_en=a.name_en,
+            description_zh=a.description_zh,
+            description_en=a.description_en,
+            system_prompt=a.system_prompt,
+            goal=a.goal,
+            asr_model_id=model_id_map.get(a.asr_model_id) if a.asr_model_id else None,
+            tts_model_id=model_id_map.get(a.tts_model_id) if a.tts_model_id else None,
+            nlp_model_id=model_id_map.get(a.nlp_model_id) if a.nlp_model_id else None,
+            asr_provider=a.asr_provider or "",
+            asr_config=a.asr_config or {},
+            tts_provider=a.tts_provider or "",
+            tts_config=a.tts_config or {},
+            nlp_provider=a.nlp_provider or "",
+            nlp_config=a.nlp_config or {},
+            vad_mode=a.vad_mode or "backend",
+            vad_config=a.vad_config,
+            tools=a.tools or [],
+            interruption_policy=a.interruption_policy or "always",
+            voiceprint_enabled=a.voiceprint_enabled,
+            language=a.language or "auto",
+            opening_line=a.opening_line,
+            test_scenario=a.test_scenario,
+            user_prompt=a.user_prompt,
+            version=a.version,
+            status=a.status,
+            folder_id=a.folder_id,
+            call_control=a.call_control,
+            cloned_from=a.id,  # Track source template
+            role=a.role,
+            task_chain=a.task_chain,
+            rules=a.rules,
+            optimization=a.optimization,
+            is_active=a.is_active,
+        )
+        db.add(clone)
+
+    logger.info(f"Cloned {len(system_agents)} agents to tenant {tenant_id[:8]}")
+
+
 async def get_auth_context(
     user_id: Annotated[str, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -95,7 +183,7 @@ async def get_auth_context(
             role=membership.role,
         )
 
-    # First login — auto-provision: create personal tenant + user record
+    # First login — auto-provision: create personal tenant + clone default data
     from backend.db.models import gen_uuid
 
     # Ensure user record exists
@@ -117,6 +205,10 @@ async def get_auth_context(
         role="owner",
     )
     db.add(member)
+    await db.flush()
+
+    # Clone default agents + models from system tenant
+    await _clone_default_data(tenant_id, user_id, db)
     await db.commit()
 
     return AuthContext(
