@@ -13,5 +13,5 @@ RUN pip install --no-cache-dir ".[all]"
 COPY backend/ ./backend/
 
 # Health check server + worker in one process
-COPY deploy/worker_health.py ./worker_health.py
+COPY backend/worker_health.py ./worker_health.py
 CMD ["sh", "-c", "python worker_health.py & python -m backend.pipeline.worker start"]
