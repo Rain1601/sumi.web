@@ -109,12 +109,14 @@ export default function LoginPage() {
               {isSignUp ? "Sign in" : "Sign up"}
             </button>
           </p>
-          <button onClick={skip}
-            className="text-[11px] tracking-[0.04em] uppercase"
-            style={{ color: "var(--fg-3)", background: "none", border: "none", cursor: "pointer", transition: "color 0.15s" }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--fg-2)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--fg-3)"; }}
-          >Skip login</button>
+          {process.env.NODE_ENV === "development" && (
+            <button onClick={skip}
+              className="text-[11px] tracking-[0.04em] uppercase"
+              style={{ color: "var(--fg-3)", background: "none", border: "none", cursor: "pointer", transition: "color 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--fg-2)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--fg-3)"; }}
+            >Skip login (dev)</button>
+          )}
         </div>
       </div>
     </main>

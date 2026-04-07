@@ -71,6 +71,13 @@ async def admin_seed():
     from backend.db.models import Agent, Tenant, TenantMember
     from backend.api.deps import _clone_default_data, SYSTEM_TENANT_ID
 
+    # Count system templates
+    async with async_session() as db:
+        sys_count_result = await db.execute(
+            select(func.count()).select_from(Agent).where(Agent.tenant_id == SYSTEM_TENANT_ID)
+        )
+        sys_agent_count = sys_count_result.scalar() or 0
+
     cloned_count = 0
     async with async_session() as db:
         # Find all personal tenants (not the system tenant)
@@ -82,17 +89,22 @@ async def admin_seed():
         for m in members:
             if m.tenant_id == SYSTEM_TENANT_ID:
                 continue
-            # Check if tenant already has agents
+            # Clone if tenant has fewer agents than system templates
             count = await db.execute(
                 select(func.count()).select_from(Agent).where(Agent.tenant_id == m.tenant_id)
             )
-            if count.scalar() == 0:
+            tenant_count = count.scalar() or 0
+            if tenant_count < sys_agent_count:
+                # Delete old agents + models, then re-clone fresh
+                from backend.db.models import ProviderModel as PM
+                await db.execute(Agent.__table__.delete().where(Agent.tenant_id == m.tenant_id))
+                await db.execute(PM.__table__.delete().where(PM.tenant_id == m.tenant_id))
                 await _clone_default_data(m.tenant_id, m.user_id, db)
                 cloned_count += 1
 
         await db.commit()
 
-    return {"status": "ok", "message": f"Seed complete. Cloned to {cloned_count} existing tenants."}
+    return {"status": "ok", "message": f"Seed complete. Cloned to {cloned_count} existing tenants ({sys_agent_count} templates)."}
 
 
 # Register routers
