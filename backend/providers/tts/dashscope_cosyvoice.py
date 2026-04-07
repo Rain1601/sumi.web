@@ -23,7 +23,7 @@ class CosyVoiceTTS(tts.TTS):
         self,
         *,
         model: str = "cosyvoice-v3-flash",
-        voice: str = "longanyang",
+        voice: str = "longxiaochun_v3",
         sample_rate: int = 22050,
         audio_format: str = "pcm",
         api_key: str = "",
@@ -95,6 +95,7 @@ class CosyVoiceSynthesizeStream(tts.SynthesizeStream):
                         "function": "SpeechSynthesizer",
                         "model": self._model,
                         "parameters": {
+                            "text_type": "PlainText",
                             "voice": self._voice,
                             "format": self._audio_format,
                             "sample_rate": self._sample_rate,

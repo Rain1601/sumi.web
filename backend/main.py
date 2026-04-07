@@ -65,46 +65,48 @@ async def admin_seed():
     from backend.db.seed import seed
     await seed(skip_init=True)
 
-    # Clone to existing tenants that have 0 agents
-    from sqlalchemy import select, func
+    from sqlalchemy import select, func, update
     from backend.db.engine import async_session
-    from backend.db.models import Agent, Tenant, TenantMember
+    from backend.db.models import Agent, ProviderModel, TenantMember
     from backend.api.deps import _clone_default_data, SYSTEM_TENANT_ID
 
-    # Count system templates
+    # Fix TTS configs: update CosyVoice models to v3-flash and fix voice names
     async with async_session() as db:
-        sys_count_result = await db.execute(
-            select(func.count()).select_from(Agent).where(Agent.tenant_id == SYSTEM_TENANT_ID)
+        # Update model entries to use v3-flash
+        await db.execute(
+            update(ProviderModel)
+            .where(ProviderModel.provider_name == "dashscope", ProviderModel.provider_type == "tts")
+            .values(model_name="cosyvoice-v3-flash")
         )
-        sys_agent_count = sys_count_result.scalar() or 0
+        # Fix legacy tts_config: add _v3 suffix if missing
+        result = await db.execute(select(Agent).where(Agent.tts_provider == "dashscope"))
+        for agent in result.scalars().all():
+            voice = (agent.tts_config or {}).get("voice", "longanyang")
+            # Add _v3 suffix if not a standard v3 voice
+            if voice not in ("longanyang", "longanhuan") and not voice.endswith("_v3"):
+                voice = voice + "_v3"
+            agent.tts_config = {"voice": voice}
+        await db.commit()
+    tts_msg = "TTS configs updated to v3 voices"
 
+    # Clone to tenants with no agents
     cloned_count = 0
     async with async_session() as db:
-        # Find all personal tenants (not the system tenant)
         result = await db.execute(
             select(TenantMember).where(TenantMember.role == "owner")
         )
-        members = result.scalars().all()
-
-        for m in members:
+        for m in result.scalars().all():
             if m.tenant_id == SYSTEM_TENANT_ID:
                 continue
-            # Clone if tenant has fewer agents than system templates
             count = await db.execute(
                 select(func.count()).select_from(Agent).where(Agent.tenant_id == m.tenant_id)
             )
-            tenant_count = count.scalar() or 0
-            if tenant_count <= sys_agent_count:  # <= to force refresh templates
-                # Delete old agents + models, then re-clone fresh
-                from backend.db.models import ProviderModel as PM
-                await db.execute(Agent.__table__.delete().where(Agent.tenant_id == m.tenant_id))
-                await db.execute(PM.__table__.delete().where(PM.tenant_id == m.tenant_id))
+            if (count.scalar() or 0) == 0:
                 await _clone_default_data(m.tenant_id, m.user_id, db)
                 cloned_count += 1
-
         await db.commit()
 
-    return {"status": "ok", "message": f"Seed complete. Cloned to {cloned_count} existing tenants ({sys_agent_count} templates)."}
+    return {"status": "ok", "message": f"Seed complete. {tts_msg}. Cloned to {cloned_count} new tenants."}
 
 
 # Register routers
