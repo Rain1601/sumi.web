@@ -56,7 +56,7 @@ export default function LoginPage() {
 
         {/* OAuth */}
         <div className="space-y-2 mb-6">
-          <button onClick={signInWithGitHub}
+          <button onClick={async () => { await signInWithGitHub(); router.push("/conversation"); }}
             className="flex w-full items-center justify-center gap-2.5 h-[42px] rounded-[var(--radius-full)] text-[13px] font-medium"
             style={{ background: "var(--bg-2)", color: "var(--fg)", border: "1px solid var(--border-2)", cursor: "pointer", transition: "all 0.15s ease" }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-3)"; }}
@@ -67,7 +67,7 @@ export default function LoginPage() {
             </svg>
             Continue with GitHub
           </button>
-          <button onClick={signInWithGoogle}
+          <button onClick={async () => { await signInWithGoogle(); router.push("/conversation"); }}
             className="flex w-full items-center justify-center gap-2.5 h-[42px] rounded-[var(--radius-full)] text-[13px] font-medium"
             style={{ background: "var(--bg-2)", color: "var(--fg)", border: "1px solid var(--border-2)", cursor: "pointer", transition: "all 0.15s ease" }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-3)"; }}
