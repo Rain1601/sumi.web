@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth";
 
@@ -15,14 +15,22 @@ interface ConversationResponse {
   summary: string | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+interface PaginatedResponse {
+  items: ConversationResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const PAGE_SIZE = 10;
 const GRID_COLS = "160px 1fr 100px 80px 2fr 40px";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
+  return d.toLocaleString("zh-CN", {
+    month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
 }
@@ -44,46 +52,62 @@ export default function HistoryPage() {
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const token = useAuthStore(s => s.token);
 
+  const fetchPage = useCallback(async (p: number) => {
+    setLoading(true);
+    const base = token
+      ? `${API_BASE}/api/conversations/`
+      : `${API_BASE}/api/conversations/all`;
+
+    const url = `${base}?page=${p}&page_size=${PAGE_SIZE}`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      const r = await fetch(url, { headers });
+      if (!r.ok) throw new Error(`${r.status}`);
+      const data: PaginatedResponse = await r.json();
+      setConversations(data.items);
+      setTotalPages(data.total_pages);
+      setTotal(data.total);
+      setPage(data.page);
+    } catch {
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchPage(1); }, [fetchPage]);
+
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this conversation?")) return;
+    if (!confirm("删除此对话记录？")) return;
     setDeleting(id);
     try {
       const r = await fetch(`${API_BASE}/api/conversations/${id}`, { method: "DELETE" });
       if (r.ok) {
-        setConversations(prev => prev.filter(c => c.id !== id));
+        // Re-fetch current page after delete
+        fetchPage(page);
       }
     } finally {
       setDeleting(null);
     }
   };
 
-  useEffect(() => {
-    const url = token
-      ? `${API_BASE}/api/conversations/`
-      : `${API_BASE}/api/conversations/all`;
-
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    fetch(url, { headers })
-      .then(r => {
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.json();
-      })
-      .then((data: ConversationResponse[]) => setConversations(data))
-      .catch(() => setConversations([]))
-      .finally(() => setLoading(false));
-  }, [token]);
-
   return (
     <div className="page">
       {/* Header */}
       <div className="page-header animate-in">
         <div>
-          <h1 className="page-title">History</h1>
-          <p className="page-desc">Conversation records</p>
+          <h1 className="page-title">对话历史</h1>
+          <p className="page-desc">
+            共 {total} 条记录
+            {totalPages > 1 && ` · 第 ${page}/${totalPages} 页`}
+          </p>
         </div>
       </div>
 
@@ -92,25 +116,25 @@ export default function HistoryPage() {
         className="tbl-header animate-in"
         style={{ gridTemplateColumns: GRID_COLS, animationDelay: "0.04s" }}
       >
-        <span>Date / Time</span>
+        <span>时间</span>
         <span>Agent</span>
-        <span>Duration</span>
-        <span>Msgs</span>
-        <span>Summary</span>
+        <span>时长</span>
+        <span>消息</span>
+        <span>摘要</span>
         <span></span>
       </div>
 
       {/* Loading */}
       {loading && (
         <div className="py-16 text-center animate-in" style={{ color: "var(--fg-3)" }}>
-          <span className="text-[13px]">Loading...</span>
+          <span className="text-[13px]">加载中...</span>
         </div>
       )}
 
       {/* Empty state */}
       {!loading && conversations.length === 0 && (
         <div className="py-24 text-center animate-in" style={{ color: "var(--fg-3)", animationDelay: "0.06s" }}>
-          <p className="text-[13px]">No conversations yet</p>
+          <p className="text-[13px]">暂无对话记录</p>
         </div>
       )}
 
@@ -119,7 +143,7 @@ export default function HistoryPage() {
         <div
           key={c.id}
           className="tbl-row animate-in"
-          style={{ gridTemplateColumns: GRID_COLS, animationDelay: `${0.06 + i * 0.025}s` }}
+          style={{ gridTemplateColumns: GRID_COLS, animationDelay: `${0.06 + i * 0.02}s` }}
         >
           <span className="text-[13px]" style={{ color: "var(--fg-2)" }}>
             <Link href={`/history/${c.id}`} style={{ color: "inherit", textDecoration: "none" }}>
@@ -152,7 +176,7 @@ export default function HistoryPage() {
             onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
             disabled={deleting === c.id}
             className="tbl-delete-btn"
-            title="Delete"
+            title="删除"
             style={{ opacity: deleting === c.id ? 0.3 : undefined }}
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -162,6 +186,61 @@ export default function HistoryPage() {
           </button>
         </div>
       ))}
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div
+          className="flex items-center justify-center gap-2 animate-in"
+          style={{ padding: "20px 0", animationDelay: "0.15s" }}
+        >
+          <button
+            onClick={() => fetchPage(page - 1)}
+            disabled={page <= 1}
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: "5px 12px", opacity: page <= 1 ? 0.3 : 1 }}
+          >
+            上一页
+          </button>
+
+          {/* Page numbers */}
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push("...");
+              acc.push(p);
+              return acc;
+            }, [])
+            .map((p, idx) =>
+              p === "..." ? (
+                <span key={`dots-${idx}`} style={{ color: "var(--fg-3)", fontSize: 12, padding: "0 4px" }}>...</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => fetchPage(p as number)}
+                  className="btn btn-ghost"
+                  style={{
+                    fontSize: 12,
+                    padding: "5px 10px",
+                    fontWeight: p === page ? 600 : 400,
+                    color: p === page ? "var(--accent)" : "var(--fg-3)",
+                    background: p === page ? "var(--accent-dim, rgba(217,119,87,0.1))" : "transparent",
+                  }}
+                >
+                  {p}
+                </button>
+              )
+            )}
+
+          <button
+            onClick={() => fetchPage(page + 1)}
+            disabled={page >= totalPages}
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: "5px 12px", opacity: page >= totalPages ? 0.3 : 1 }}
+          >
+            下一页
+          </button>
+        </div>
+      )}
     </div>
   );
 }

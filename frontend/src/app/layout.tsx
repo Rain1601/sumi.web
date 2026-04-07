@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sumi.web - Voice AI Agent",
+  title: "Kodama - Voice AI Agent",
   description: "Real-time voice conversation with AI agents",
+  icons: {
+    icon: "/logo-sumi.svg",
+  },
 };
 
 export default function RootLayout({

@@ -22,8 +22,8 @@ class CosyVoiceTTS(tts.TTS):
     def __init__(
         self,
         *,
-        model: str = "cosyvoice-v3-flash",
-        voice: str = "longanyang",
+        model: str = "cosyvoice-v3.5-flash",
+        voice: str = "longshu",
         sample_rate: int = 22050,
         audio_format: str = "pcm",
         api_key: str = "",

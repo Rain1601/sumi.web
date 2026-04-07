@@ -13,11 +13,44 @@ class Base(DeclarativeBase):
     pass
 
 
+# ═══════════════════════════════════════════════════════════════
+# Multi-tenancy: Organization + User
+# ═══════════════════════════════════════════════════════════════
+
+class Tenant(Base):
+    """Organization / workspace — shared resource boundary."""
+    __tablename__ = "tenants"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # URL-safe identifier
+    plan: Mapped[str] = mapped_column(String, default="free")               # "free" | "pro" | "enterprise"
+    settings: Mapped[dict | None] = mapped_column(JSON)                     # Org-level settings
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TenantMember(Base):
+    """User ↔ Tenant membership with role."""
+    __tablename__ = "tenant_members"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_tenant_member"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String, default="member")  # "owner" | "admin" | "member" | "viewer"
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
 class ProviderModel(Base):
     """A configured model instance (e.g., 'Deepgram Nova-2 中文', 'Claude Sonnet')."""
     __tablename__ = "provider_models"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False, default="")
     name: Mapped[str] = mapped_column(String, nullable=False)           # Display name
     provider_type: Mapped[str] = mapped_column(String, nullable=False)  # "asr" | "tts" | "nlp"
     provider_name: Mapped[str] = mapped_column(String, nullable=False)  # "deepgram" | "openai" | "anthropic" | etc.
@@ -32,9 +65,10 @@ class ProviderModel(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)  # Supabase UID
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # Firebase / Supabase UID
     display_name: Mapped[str | None] = mapped_column(String)
     email: Mapped[str | None] = mapped_column(String)
+    avatar_url: Mapped[str | None] = mapped_column(String)
     preferred_language: Mapped[str] = mapped_column(String, default="zh")
     voiceprint_enrolled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -45,6 +79,8 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False, default="")
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))  # Creator user
     name_zh: Mapped[str] = mapped_column(String, nullable=False)
     name_en: Mapped[str] = mapped_column(String, nullable=False)
     description_zh: Mapped[str | None] = mapped_column(Text)
@@ -69,6 +105,7 @@ class Agent(Base):
     voiceprint_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     language: Mapped[str] = mapped_column(String, default="auto")
     opening_line: Mapped[str | None] = mapped_column(Text)           # 开场白
+    test_scenario: Mapped[str | None] = mapped_column(Text)          # 对抗测试默认场景描述
     user_prompt: Mapped[str | None] = mapped_column(Text)            # User prompt template with ${vars}
     version: Mapped[int] = mapped_column(Integer, default=1)         # Version number
     status: Mapped[str] = mapped_column(String, default="draft")     # "draft" | "published"
@@ -147,6 +184,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_uuid)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False, default="")
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False)
     room_name: Mapped[str | None] = mapped_column(String)

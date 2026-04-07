@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.config import settings
 from backend.db.models import ProviderModel, gen_uuid
 
@@ -133,9 +133,11 @@ async def get_provider_options():
 
 
 @router.get("/", response_model=list[ProviderModelResponse])
-async def list_models(db: DbSession, provider_type: str | None = None):
-    """List all configured models."""
-    query = select(ProviderModel).order_by(ProviderModel.provider_type, ProviderModel.name)
+async def list_models(auth: Auth, db: DbSession, provider_type: str | None = None):
+    """List models in current tenant."""
+    query = select(ProviderModel).where(
+        ProviderModel.tenant_id == auth.tenant_id
+    ).order_by(ProviderModel.provider_type, ProviderModel.name)
     if provider_type:
         query = query.where(ProviderModel.provider_type == provider_type)
     result = await db.execute(query)
@@ -143,13 +145,14 @@ async def list_models(db: DbSession, provider_type: str | None = None):
 
 
 @router.post("/", response_model=ProviderModelResponse)
-async def create_model(req: ProviderModelCreate, db: DbSession):
-    """Create a new model configuration (all go through AIHubMix gateway)."""
+async def create_model(req: ProviderModelCreate, auth: Auth, db: DbSession):
+    """Create a new model configuration in current tenant."""
     if req.provider_type not in ("asr", "tts", "nlp"):
         raise HTTPException(400, "provider_type must be 'asr', 'tts', or 'nlp'")
 
     model = ProviderModel(
         id=gen_uuid(),
+        tenant_id=auth.tenant_id,
         name=req.name,
         provider_type=req.provider_type,
         provider_name=req.provider_name,
@@ -164,8 +167,10 @@ async def create_model(req: ProviderModelCreate, db: DbSession):
 
 
 @router.get("/{model_id}", response_model=ProviderModelResponse)
-async def get_model(model_id: str, db: DbSession):
-    result = await db.execute(select(ProviderModel).where(ProviderModel.id == model_id))
+async def get_model(model_id: str, auth: Auth, db: DbSession):
+    result = await db.execute(select(ProviderModel).where(
+        ProviderModel.id == model_id, ProviderModel.tenant_id == auth.tenant_id
+    ))
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(404, "Model not found")
@@ -173,8 +178,10 @@ async def get_model(model_id: str, db: DbSession):
 
 
 @router.patch("/{model_id}", response_model=ProviderModelResponse)
-async def update_model(model_id: str, req: ProviderModelUpdate, db: DbSession):
-    result = await db.execute(select(ProviderModel).where(ProviderModel.id == model_id))
+async def update_model(model_id: str, req: ProviderModelUpdate, auth: Auth, db: DbSession):
+    result = await db.execute(select(ProviderModel).where(
+        ProviderModel.id == model_id, ProviderModel.tenant_id == auth.tenant_id
+    ))
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(404, "Model not found")
@@ -194,8 +201,10 @@ async def update_model(model_id: str, req: ProviderModelUpdate, db: DbSession):
 
 
 @router.delete("/{model_id}")
-async def delete_model(model_id: str, db: DbSession):
-    result = await db.execute(select(ProviderModel).where(ProviderModel.id == model_id))
+async def delete_model(model_id: str, auth: Auth, db: DbSession):
+    result = await db.execute(select(ProviderModel).where(
+        ProviderModel.id == model_id, ProviderModel.tenant_id == auth.tenant_id
+    ))
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(404, "Model not found")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.api.deps import CurrentUserId, DbSession
+from backend.api.deps import Auth, DbSession
 
 router = APIRouter()
 
@@ -28,14 +28,14 @@ class MemorySearchResult(BaseModel):
 
 
 @router.get("/facts", response_model=list[MemoryFactResponse])
-async def get_memory_facts(user_id: CurrentUserId, db: DbSession):
+async def get_memory_facts(auth: Auth, db: DbSession):
     """Get structured memory facts for the current user."""
     from sqlalchemy import select
     from backend.db.models import MemoryFact
 
     result = await db.execute(
         select(MemoryFact)
-        .where(MemoryFact.user_id == user_id)
+        .where(MemoryFact.user_id == auth.user_id)
         .order_by(MemoryFact.updated_at.desc())
     )
     facts = result.scalars().all()
@@ -53,12 +53,12 @@ async def get_memory_facts(user_id: CurrentUserId, db: DbSession):
 
 
 @router.post("/search", response_model=list[MemorySearchResult])
-async def search_memory(req: MemorySearchRequest, user_id: CurrentUserId):
+async def search_memory(req: MemorySearchRequest, auth: Auth):
     """Search vector memory for relevant past context."""
     from backend.memory.vector import vector_store
 
     results = await vector_store.search(
-        user_id=user_id,
+        user_id=auth.user_id,
         query=req.query,
         top_k=req.top_k,
     )

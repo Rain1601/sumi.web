@@ -16,7 +16,7 @@ from livekit.agents import tts
 
 from backend.config import settings
 
-logger = logging.getLogger("sumi.voice_test_audio")
+logger = logging.getLogger("kodama.voice_test_audio")
 
 SAMPLE_RATE = 24000
 NUM_CHANNELS = 1

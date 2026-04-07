@@ -267,33 +267,36 @@
     font-weight: 500;
   }
 
-  /* ─── Voice Rings ─── */
-  .rings-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-  .ring {
-    position: absolute; border-radius: 50%;
-    border: 1.5px solid var(--accent);
-    transition: all 0.5s cubic-bezier(0.16,1,0.3,1);
-  }
-  .rings-idle .ring { animation: ringBreathe 3s ease-in-out infinite; }
-  .rings-idle .ring:nth-child(1) { animation-delay: 0s; }
-  .rings-idle .ring:nth-child(2) { animation-delay: 0.3s; }
-  .rings-idle .ring:nth-child(3) { animation-delay: 0.6s; }
-  .rings-listening .ring { animation: ringListen 2s ease-in-out infinite; }
-  .rings-listening .ring:nth-child(1) { animation-delay: 0s; }
-  .rings-listening .ring:nth-child(2) { animation-delay: 0.25s; }
-  .rings-listening .ring:nth-child(3) { animation-delay: 0.5s; }
-  .rings-speaking .ring { animation: ringSpeak 1.6s cubic-bezier(0,0,0.2,1) infinite; }
-  .rings-speaking .ring:nth-child(1) { animation-delay: 0s; }
-  .rings-speaking .ring:nth-child(2) { animation-delay: 0.35s; }
-  .rings-speaking .ring:nth-child(3) { animation-delay: 0.7s; }
-  .rings-thinking .ring { animation: ringThink 2.5s linear infinite; }
-  .rings-thinking .ring:nth-child(1) { animation-delay: 0s; }
-  .rings-thinking .ring:nth-child(2) { animation-delay: 0.15s; animation-direction: reverse; }
-  .rings-thinking .ring:nth-child(3) { animation-delay: 0.3s; }
-  .ring-dot { position: relative; z-index: 1; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); transition: all 0.4s ease; }
-  .ring-dot-speaking { background: var(--green); box-shadow: 0 0 12px var(--green); }
-  .ring-dot-thinking { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
-  .ring-dot-listening { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  /* ─── Hand-drawn Microphone ─── */
+  .hd-mic { position: relative; display: flex; align-items: center; justify-content: center; }
+  .hd-mic-head { transform-origin: center 90px; }
+  .hd-wave { transform-origin: center center; }
+
+  /* Idle — gentle float + waves faint */
+  .hd-idle .hd-mic-head { animation: hdFloat 4s ease-in-out infinite; }
+  .hd-idle .hd-wave { opacity: 0.15; }
+  .hd-idle .hd-w1 { animation: hdWaveFade 3s ease-in-out infinite 0s; }
+  .hd-idle .hd-w2 { animation: hdWaveFade 3s ease-in-out infinite 0.4s; }
+  .hd-idle .hd-w3 { animation: hdWaveFade 3s ease-in-out infinite 0.8s; }
+
+  /* Listening — mic pulses, waves breathe in */
+  .hd-listening .hd-mic-head { animation: hdPulse 1.8s ease-in-out infinite; }
+  .hd-listening .hd-w1 { opacity: 0.5; animation: hdWaveIn 1.8s ease-in-out infinite 0s; }
+  .hd-listening .hd-w2 { opacity: 0.35; animation: hdWaveIn 1.8s ease-in-out infinite 0.2s; }
+  .hd-listening .hd-w3 { opacity: 0.2; animation: hdWaveIn 1.8s ease-in-out infinite 0.4s; }
+
+  /* Speaking — waves radiate outward */
+  .hd-speaking .hd-mic-head { animation: hdPulse 1.2s ease-in-out infinite; }
+  .hd-speaking .hd-w1 { animation: hdWaveOut 1.4s cubic-bezier(0,0,0.2,1) infinite 0s; }
+  .hd-speaking .hd-w2 { animation: hdWaveOut 1.4s cubic-bezier(0,0,0.2,1) infinite 0.25s; }
+  .hd-speaking .hd-w3 { animation: hdWaveOut 1.4s cubic-bezier(0,0,0.2,1) infinite 0.5s; }
+
+  /* Thinking — slow wobble, waves dim */
+  .hd-thinking .hd-mic-head { animation: hdWobble 2.5s ease-in-out infinite; }
+  .hd-thinking .hd-wave { opacity: 0.12; }
+  .hd-thinking .hd-w1 { animation: hdWaveFade 2.5s ease-in-out infinite 0s; }
+  .hd-thinking .hd-w2 { animation: hdWaveFade 2.5s ease-in-out infinite 0.3s; }
+  .hd-thinking .hd-w3 { opacity: 0; }
 
   /* ─── Transcript ─── */
   .transcript-item {
@@ -336,10 +339,32 @@
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .animate-in { animation: fadeUp 0.3s cubic-bezier(0.16,1,0.3,1) both; }
 
-@keyframes ringBreathe { 0%, 100% { transform: scale(0.96); opacity: 0.2; } 50% { transform: scale(1.04); opacity: 0.4; } }
-@keyframes ringListen { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(0.92); opacity: 0.6; } }
-@keyframes ringSpeak { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.6); opacity: 0; } }
-@keyframes ringThink { 0% { transform: scale(0.95) rotate(0deg); opacity: 0.2; } 50% { transform: scale(1.05) rotate(180deg); opacity: 0.45; } 100% { transform: scale(0.95) rotate(360deg); opacity: 0.2; } }
+/* Hand-drawn mic keyframes */
+@keyframes hdFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes hdPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+@keyframes hdWobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-2deg) scale(0.98); }
+  75% { transform: rotate(2deg) scale(1.02); }
+}
+@keyframes hdWaveFade {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.25; }
+}
+@keyframes hdWaveIn {
+  0%, 100% { opacity: 0.2; transform: scaleX(1); }
+  50% { opacity: 0.6; transform: scaleX(0.92); }
+}
+@keyframes hdWaveOut {
+  0% { opacity: 0.6; transform: scaleX(0.9); }
+  100% { opacity: 0; transform: scaleX(1.3); }
+}
 
 /* ─── Pipeline Timeline ─── */
 .tl-axis { display: flex; align-items: flex-end; gap: 0; margin-bottom: 4px; }

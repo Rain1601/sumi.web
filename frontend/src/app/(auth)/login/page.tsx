@@ -46,8 +46,8 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-5">
             <span className="flex items-center justify-center w-[30px] h-[30px] rounded-[8px] text-[13px] font-bold"
-              style={{ background: "var(--fg)", color: "var(--bg-0)" }}>S</span>
-            <span className="text-[16px] font-semibold" style={{ color: "var(--fg)" }}>sumi.web</span>
+              style={{ background: "var(--fg)", color: "var(--bg-0)" }}>K</span>
+            <span className="text-[16px] font-semibold" style={{ color: "var(--fg)" }}>Kodama</span>
           </div>
           <p className="text-[13px]" style={{ color: "var(--fg-3)" }}>
             {isSignUp ? "Create your account" : "Sign in to continue"}

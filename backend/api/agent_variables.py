@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.db.models import Agent, AgentVariable, gen_uuid
 
 router = APIRouter()
@@ -45,7 +45,7 @@ async def _get_agent_or_404(agent_id: str, db) -> Agent:
 
 
 @router.get("/{agent_id}/variables", response_model=list[VariableResponse])
-async def list_variables(agent_id: str, db: DbSession):
+async def list_variables(agent_id: str, auth: Auth, db: DbSession):
     """List all variables for an agent."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -61,7 +61,7 @@ async def list_variables(agent_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/variables", response_model=VariableResponse)
-async def create_variable(agent_id: str, req: VariableCreate, db: DbSession):
+async def create_variable(agent_id: str, req: VariableCreate, auth: Auth, db: DbSession):
     """Create a new variable for an agent."""
     await _get_agent_or_404(agent_id, db)
     var = AgentVariable(
@@ -83,7 +83,7 @@ async def create_variable(agent_id: str, req: VariableCreate, db: DbSession):
 
 
 @router.patch("/{agent_id}/variables/{var_id}", response_model=VariableResponse)
-async def update_variable(agent_id: str, var_id: str, req: VariableUpdate, db: DbSession):
+async def update_variable(agent_id: str, var_id: str, req: VariableUpdate, auth: Auth, db: DbSession):
     """Update an agent variable."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -107,7 +107,7 @@ async def update_variable(agent_id: str, var_id: str, req: VariableUpdate, db: D
 
 
 @router.delete("/{agent_id}/variables/{var_id}")
-async def delete_variable(agent_id: str, var_id: str, db: DbSession):
+async def delete_variable(agent_id: str, var_id: str, auth: Auth, db: DbSession):
     """Delete an agent variable."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(

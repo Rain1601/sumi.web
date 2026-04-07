@@ -119,9 +119,9 @@ export function LiveTranscriptPanel() {
   if (entries.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2" style={{ color: "var(--fg-3)" }}>
-        <p className="text-[13px]">Listening... transcript will appear here</p>
+        <p className="text-[13px]">聆听中... 转写文本将显示在这里</p>
         {speakerStatus.enrolled && (
-          <p className="text-[10px]" style={{ color: "var(--green)" }}>Speaker enrolled</p>
+          <p className="text-[10px]" style={{ color: "var(--green)" }}>声纹已注册</p>
         )}
       </div>
     );
@@ -141,7 +141,7 @@ export function LiveTranscriptPanel() {
                 fontSize: 11, fontWeight: 600,
                 letterSpacing: "0.04em", textTransform: "uppercase", color,
               }}>
-                {entry.role === "user" ? "You" : "Agent"}
+                {entry.role === "user" ? "你" : "助手"}
               </span>
               {vp && entry.role === "user" && (
                 <span
@@ -152,7 +152,7 @@ export function LiveTranscriptPanel() {
                     color: vp.isPrimary ? "var(--green)" : "var(--red)",
                     opacity: 0.8,
                   }}
-                  title={`Speaker score: ${vp.score}`}
+                  title={`声纹匹配: ${vp.score}`}
                 >
                   {vp.isAnchor ? "●" : vp.isPrimary ? `${Math.round(vp.score * 100)}%` : "✕"}
                 </span>
@@ -197,7 +197,7 @@ export function TranscriptPanel({ messages }: { messages: Message[] }) {
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center" style={{ color: "var(--fg-3)" }}>
-        <p className="text-[13px]">Transcript will appear here...</p>
+        <p className="text-[13px]">转写文本将显示在这里...</p>
       </div>
     );
   }
@@ -214,7 +214,7 @@ export function TranscriptPanel({ messages }: { messages: Message[] }) {
               color: msg.role === "user" ? "var(--accent)" : msg.role === "assistant" ? "var(--green)" : "var(--fg-3)",
             }}
           >
-            {msg.role === "user" ? "You" : msg.role === "assistant" ? "Agent" : "Sys"}
+            {msg.role === "user" ? "你" : msg.role === "assistant" ? "助手" : "系统"}
           </span>
           <p style={{
             flex: 1, fontSize: 13, lineHeight: 1.65,

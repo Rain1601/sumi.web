@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.db.models import Agent, AgentSkill, gen_uuid
 
 router = APIRouter()
@@ -60,7 +60,7 @@ async def _get_agent_or_404(agent_id: str, db) -> Agent:
 
 
 @router.get("/{agent_id}/skills", response_model=list[SkillResponse])
-async def list_skills(agent_id: str, db: DbSession):
+async def list_skills(agent_id: str, auth: Auth, db: DbSession):
     """List all skills for an agent."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -81,7 +81,7 @@ async def list_skills(agent_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/skills", response_model=SkillResponse)
-async def create_skill(agent_id: str, req: SkillCreate, db: DbSession):
+async def create_skill(agent_id: str, req: SkillCreate, auth: Auth, db: DbSession):
     """Create a new skill for an agent."""
     await _get_agent_or_404(agent_id, db)
     skill = AgentSkill(
@@ -108,7 +108,7 @@ async def create_skill(agent_id: str, req: SkillCreate, db: DbSession):
 
 
 @router.patch("/{agent_id}/skills/{skill_id}", response_model=SkillResponse)
-async def update_skill(agent_id: str, skill_id: str, req: SkillUpdate, db: DbSession):
+async def update_skill(agent_id: str, skill_id: str, req: SkillUpdate, auth: Auth, db: DbSession):
     """Update an agent skill."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -133,7 +133,7 @@ async def update_skill(agent_id: str, skill_id: str, req: SkillUpdate, db: DbSes
 
 
 @router.delete("/{agent_id}/skills/{skill_id}")
-async def delete_skill(agent_id: str, skill_id: str, db: DbSession):
+async def delete_skill(agent_id: str, skill_id: str, auth: Auth, db: DbSession):
     """Delete an agent skill."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(

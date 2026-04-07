@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.config import settings
 from backend.db.models import Agent, AgentRule
 from backend.pipeline.prompt_builder import build_dynamic_prompt, format_rules
@@ -29,6 +29,7 @@ class VoiceTestRequest(BaseModel):
 async def run_agent_voice_test(
     agent_id: str,
     request: VoiceTestRequest,
+    auth: Auth,
     db: DbSession,
 ):
     """Run a voice adversarial test for an agent, streamed via SSE."""

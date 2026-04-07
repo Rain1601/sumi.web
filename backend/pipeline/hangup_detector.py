@@ -14,7 +14,7 @@ import openai
 
 from backend.config import settings
 
-logger = logging.getLogger("sumi.hangup")
+logger = logging.getLogger("kodama.hangup")
 
 _HANGUP_CHECK_PROMPT = """\
 你是一个通话结束检测器。根据对话的最近几轮内容，判断双方是否已经在告别/结束通话。

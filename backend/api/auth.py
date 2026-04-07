@@ -1,9 +1,9 @@
-"""Auth endpoints - sync Supabase user to local DB."""
+"""Auth endpoints - sync authenticated user to local DB."""
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.api.deps import CurrentUserId, DbSession
+from backend.api.deps import Auth, DbSession
 
 router = APIRouter()
 
@@ -21,17 +21,17 @@ class UpdateProfileRequest(BaseModel):
 
 
 @router.get("/me", response_model=UserProfileResponse)
-async def get_profile(user_id: CurrentUserId, db: DbSession):
-    """Get or create user profile from Supabase auth token."""
+async def get_profile(auth: Auth, db: DbSession):
+    """Get or create user profile from auth token."""
     from sqlalchemy import select
     from backend.db.models import User
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == auth.user_id))
     user = result.scalar_one_or_none()
 
     if not user:
         # First login - create local user record
-        user = User(id=user_id, preferred_language="zh")
+        user = User(id=auth.user_id, preferred_language="zh")
         db.add(user)
         await db.commit()
         await db.refresh(user)
@@ -46,13 +46,13 @@ async def get_profile(user_id: CurrentUserId, db: DbSession):
 
 @router.patch("/me", response_model=UserProfileResponse)
 async def update_profile(
-    req: UpdateProfileRequest, user_id: CurrentUserId, db: DbSession
+    req: UpdateProfileRequest, auth: Auth, db: DbSession
 ):
     """Update user profile."""
     from sqlalchemy import select
     from backend.db.models import User
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == auth.user_id))
     user = result.scalar_one_or_none()
     if not user:
         from fastapi import HTTPException

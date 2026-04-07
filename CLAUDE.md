@@ -1,4 +1,4 @@
-# Sumi.web
+# Kodama
 
 Real-time Voice AI Agent Platform.
 
@@ -11,13 +11,13 @@ Real-time Voice AI Agent Platform.
 ## Development
 
 ### Prerequisites
-- Python 3.12+ (conda env `sumi`)
+- Python 3.12+ (conda env `kodama`)
 - Node.js 20+ with pnpm
 - Docker (for LiveKit Server + Redis)
 
 ### Backend
 ```bash
-conda activate sumi
+conda activate kodama
 pip install -e "backend/.[all,dev]"
 # Seed database:
 python -m backend.db.seed

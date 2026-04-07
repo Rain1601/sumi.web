@@ -6,375 +6,76 @@ import { useAuthStore } from "@/stores/auth";
 
 /* ============================================================
    Hand-drawn SVG Hero Illustration
-   Voice AI pipeline: microphone → ASR → NLP → TTS → speaker
-   Anthropic style: terracotta + cream on dark, organic wobble
+   Condenser microphone — Anthropic style matching Muses pen
+   Terracotta + cream on dark, bold confident strokes, no filters
    ============================================================ */
 function HeroIllustration() {
   return (
     <svg
-      viewBox="0 0 480 320"
+      viewBox="0 0 420 500"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="Voice AI pipeline illustration"
-      style={{ width: "100%", maxWidth: 520, height: "auto" }}
+      aria-label="Voice AI microphone illustration"
+      style={{ width: "100%", maxWidth: 320, height: "auto" }}
     >
-      {/* ─── Color vars (consumed via style attr) ─── */}
-      {/* --bg: #1a1816, --terracotta: #d97757, --cream: #faf8f4 */}
+      {/* === Microphone head (terracotta filled, hand-drawn oval) === */}
+      <path
+        d="M210 68 C220 64, 232 70, 240 90 C248 110, 252 142, 253 175 C254 208, 250 235, 242 255 C234 275, 224 282, 212 283 C200 284, 190 277, 182 257 C174 237, 168 210, 167 177 C166 144, 170 112, 178 92 C186 72, 200 66, 210 68Z"
+        fill="#d97757"
+      />
+      {/* Mic outline (cream, bold stroke) */}
+      <path
+        d="M210 68 C220 64, 232 70, 240 90 C248 110, 252 142, 253 175 C254 208, 250 235, 242 255 C234 275, 224 282, 212 283 C200 284, 190 277, 182 257 C174 237, 168 210, 167 177 C166 144, 170 112, 178 92 C186 72, 200 66, 210 68Z"
+        stroke="rgba(255,255,255,0.9)" strokeWidth="7" strokeLinecap="round" fill="none"
+      />
 
-      <defs>
-        {/* Wobble filter — medium sketch */}
-        <filter id="sketch" x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence
-            type="turbulence"
-            baseFrequency="0.025"
-            numOctaves="4"
-            seed="42"
-            result="turb"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="turb"
-            scale="3"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
+      {/* Mic grille detail lines (cream, horizontal) */}
+      <path d="M180 115 C194 111, 222 110, 242 114"
+        stroke="rgba(255,255,255,0.4)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M176 150 C192 146, 224 145, 246 149"
+        stroke="rgba(255,255,255,0.35)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M174 185 C190 181, 226 180, 248 184"
+        stroke="rgba(255,255,255,0.3)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M176 220 C192 216, 224 215, 244 219"
+        stroke="rgba(255,255,255,0.25)" strokeWidth="4" strokeLinecap="round" />
 
-        {/* Lighter filter for structural elements */}
-        <filter id="sketch-light" x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence
-            type="turbulence"
-            baseFrequency="0.03"
-            numOctaves="4"
-            seed="17"
-            result="turb"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="turb"
-            scale="2.5"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
+      {/* === Mic stand / stem === */}
+      <path d="M204 280 C207 308, 209 338, 210 368"
+        stroke="rgba(255,255,255,0.88)" strokeWidth="8" strokeLinecap="round" />
+      <path d="M220 278 C218 306, 214 336, 212 366"
+        stroke="rgba(255,255,255,0.88)" strokeWidth="8" strokeLinecap="round" />
+      {/* Center slit */}
+      <path d="M211 288 L211 362"
+        stroke="rgba(255,255,255,0.3)" strokeWidth="3" strokeLinecap="round" />
 
-      <style>{`
-        .draw-stroke {
-          stroke-dasharray: 1000;
-          stroke-dashoffset: 1000;
-          animation: drawIn 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-        }
-        .draw-stroke.d1 { animation-delay: 0.3s; }
-        .draw-stroke.d2 { animation-delay: 0.6s; }
-        .draw-stroke.d3 { animation-delay: 0.9s; }
-        .draw-stroke.d4 { animation-delay: 1.2s; }
-        .draw-stroke.d5 { animation-delay: 1.5s; }
-        .draw-stroke.d6 { animation-delay: 1.8s; }
-        @keyframes drawIn { to { stroke-dashoffset: 0; } }
+      {/* === Sound dots (terracotta blobs near the mic tip) === */}
+      <path d="M230 358 C236 353, 242 359, 238 367 C234 375, 226 373, 228 365 C230 361, 232 357, 230 358Z"
+        fill="#d97757" />
+      <path d="M188 371 C192 367, 197 371, 195 377 C193 383, 186 381, 187 375Z"
+        fill="#d97757" />
 
-        .fade-fill {
-          opacity: 0;
-          animation: fillIn 0.8s ease forwards;
-        }
-        .fade-fill.f1 { animation-delay: 0.8s; }
-        .fade-fill.f2 { animation-delay: 1.1s; }
-        .fade-fill.f3 { animation-delay: 1.4s; }
-        .fade-fill.f4 { animation-delay: 1.7s; }
-        .fade-fill.f5 { animation-delay: 2.0s; }
-        @keyframes fillIn { to { opacity: 1; } }
+      {/* === Sound wave arcs (right side of mic, cream) === */}
+      <path d="M262 370 C278 365, 298 362, 326 367"
+        stroke="rgba(255,255,255,0.5)" strokeWidth="6" strokeLinecap="round" />
+      <path d="M258 394 C276 390, 310 388, 340 392"
+        stroke="rgba(255,255,255,0.38)" strokeWidth="5" strokeLinecap="round" />
+      <path d="M266 418 C284 414, 315 413, 334 416"
+        stroke="rgba(255,255,255,0.28)" strokeWidth="4" strokeLinecap="round" />
 
-        .float-a {
-          animation: floatA 7s ease-in-out infinite;
-          animation-delay: 3s;
-        }
-        .float-b {
-          animation: floatB 6s ease-in-out infinite;
-          animation-delay: 3.5s;
-        }
-        @keyframes floatA {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes floatB {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(5px); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .draw-stroke { animation: none; stroke-dashoffset: 0; }
-          .fade-fill { animation: none; opacity: 1; }
-          .float-a, .float-b { animation: none; }
-        }
-      `}</style>
-
-      {/* ═══════ MAIN FILTERED GROUP ═══════ */}
-      <g filter="url(#sketch)">
-
-        {/* ─── Connecting lines (cream, double-stroke) ─── */}
-
-        {/* Line: Mic node → ASR node */}
-        {/* Ghost pass */}
-        <path
-          d="M92 162 C120 155, 145 148, 168 152"
-          stroke="#faf8f4"
-          strokeWidth="5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.3"
-          className="draw-stroke"
-        />
-        {/* Main pass */}
-        <path
-          d="M90 160 C118 153, 143 146, 170 150"
-          stroke="#faf8f4"
-          strokeWidth="4"
-          strokeLinecap="round"
-          fill="none"
-          className="draw-stroke"
-        />
-
-        {/* Line: ASR → NLP (center) */}
-        {/* Ghost */}
-        <path
-          d="M210 152 C225 140, 248 135, 270 142"
-          stroke="#d97757"
-          strokeWidth="5.5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.35"
-          className="draw-stroke d1"
-        />
-        {/* Main */}
-        <path
-          d="M208 150 C223 138, 246 133, 272 140"
-          stroke="#d97757"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-          fill="none"
-          className="draw-stroke d1"
-        />
-
-        {/* Line: NLP → TTS */}
-        {/* Ghost */}
-        <path
-          d="M318 148 C338 152, 358 160, 378 168"
-          stroke="#d97757"
-          strokeWidth="5.5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.35"
-          className="draw-stroke d2"
-        />
-        {/* Main */}
-        <path
-          d="M320 146 C340 150, 360 158, 380 166"
-          stroke="#d97757"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-          fill="none"
-          className="draw-stroke d2"
-        />
-
-        {/* Line: TTS → Speaker */}
-        {/* Ghost */}
-        <path
-          d="M418 170 C430 168, 442 165, 454 160"
-          stroke="#faf8f4"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.3"
-          className="draw-stroke d3"
-        />
-        {/* Main */}
-        <path
-          d="M416 168 C428 166, 440 163, 452 158"
-          stroke="#faf8f4"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          fill="none"
-          className="draw-stroke d3"
-        />
-
-        {/* ─── Nodes (terracotta filled blobs — path not geometry) ─── */}
-
-        {/* Node 1: Microphone (left) — larger */}
-        <g className="float-a">
-          <path
-            d="M72 142 C82 138, 92 140, 96 150 C100 160, 95 172, 85 176 C75 180, 64 175, 60 165 C56 155, 62 144, 72 142Z"
-            fill="#d97757"
-            className="fade-fill f1"
-          />
-          {/* Mic icon sketch lines inside */}
-          <path
-            d="M75 155 C76 150, 80 147, 84 148"
-            stroke="#faf8f4"
-            strokeWidth="2"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.7"
-            className="draw-stroke d4"
-          />
-          <path
-            d="M73 163 C76 166, 82 167, 86 164"
-            stroke="#faf8f4"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.5"
-            className="draw-stroke d4"
-          />
-        </g>
-
-        {/* Node 2: ASR */}
-        <g className="float-b">
-          <path
-            d="M180 134 C192 130, 204 135, 206 147 C208 159, 200 168, 188 170 C176 172, 168 164, 170 152 C172 140, 178 136, 180 134Z"
-            fill="#d97757"
-            className="fade-fill f2"
-          />
-        </g>
-
-        {/* Node 3: NLP (center — largest, the "brain") */}
-        <g className="float-a">
-          <path
-            d="M278 118 C296 114, 316 120, 320 138 C324 156, 314 172, 296 176 C278 180, 264 170, 260 152 C256 134, 266 120, 278 118Z"
-            fill="#d97757"
-            className="fade-fill f3"
-          />
-          {/* Brain detail — small inner loops */}
-          <path
-            d="M282 140 C286 134, 296 132, 302 138 C308 144, 305 152, 298 155"
-            stroke="#faf8f4"
-            strokeWidth="2"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.6"
-            className="draw-stroke d5"
-          />
-          <path
-            d="M285 155 C288 160, 296 162, 302 158"
-            stroke="#faf8f4"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.4"
-            className="draw-stroke d5"
-          />
-        </g>
-
-        {/* Node 4: TTS */}
-        <g className="float-b">
-          <path
-            d="M392 152 C404 148, 414 154, 416 166 C418 178, 410 186, 398 188 C386 190, 378 182, 380 170 C382 158, 388 154, 392 152Z"
-            fill="#d97757"
-            className="fade-fill f4"
-          />
-        </g>
-
-        {/* ─── Voice wave squiggle (decorative, below the pipeline) ─── */}
-        {/* Pressure variation: thick start → thin end */}
-
-        {/* Segment 1 — thick */}
-        <path
-          d="M120 220 C140 210, 160 230, 180 218"
-          stroke="#faf8f4"
-          strokeWidth="6"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.6"
-          className="draw-stroke d4"
-        />
-        {/* Segment 2 — medium */}
-        <path
-          d="M180 218 C200 206, 218 232, 240 220"
-          stroke="#faf8f4"
-          strokeWidth="5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.5"
-          className="draw-stroke d5"
-        />
-        {/* Segment 3 — thinner */}
-        <path
-          d="M240 220 C260 208, 278 228, 298 216"
-          stroke="#faf8f4"
-          strokeWidth="4"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.4"
-          className="draw-stroke d5"
-        />
-        {/* Segment 4 — thin tail */}
-        <path
-          d="M298 216 C312 210, 328 222, 345 215"
-          stroke="#faf8f4"
-          strokeWidth="3"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.3"
-          className="draw-stroke d6"
-        />
-
-        {/* ─── Small accent dots (decorative) ─── */}
-        <path
-          d="M155 190 C158 188, 161 190, 160 193 C159 196, 155 197, 154 194 C153 191, 155 190, 155 190Z"
-          fill="#d97757"
-          opacity="0.6"
-          className="fade-fill f4"
-        />
-        <path
-          d="M340 195 C343 193, 346 195, 345 198 C344 201, 340 202, 339 199 C338 196, 340 195, 340 195Z"
-          fill="#d97757"
-          opacity="0.5"
-          className="fade-fill f5"
-        />
-      </g>
-
-      {/* ─── Labels (lighter filter for text-like elements) ─── */}
-      <g filter="url(#sketch-light)">
-        {/* ASR label */}
-        <text
-          x="185"
-          y="196"
-          fill="#faf8f4"
-          fontSize="10"
-          fontFamily="'IBM Plex Mono', monospace"
-          fontWeight="500"
-          opacity="0.55"
-          className="fade-fill f2"
-        >
-          ASR
-        </text>
-        {/* NLP label */}
-        <text
-          x="280"
-          y="200"
-          fill="#faf8f4"
-          fontSize="10"
-          fontFamily="'IBM Plex Mono', monospace"
-          fontWeight="500"
-          opacity="0.55"
-          className="fade-fill f3"
-        >
-          NLP
-        </text>
-        {/* TTS label */}
-        <text
-          x="390"
-          y="210"
-          fill="#faf8f4"
-          fontSize="10"
-          fontFamily="'IBM Plex Mono', monospace"
-          fontWeight="500"
-          opacity="0.55"
-          className="fade-fill f4"
-        >
-          TTS
-        </text>
-      </g>
+      {/* === Decorative Squiggle (signature hand motif) === */}
+      {/* Wavy M-shape — thick cream, pressure variation */}
+      <path d="M68 432 C76 409, 88 437, 101 415 C114 393, 103 435, 125 417 C147 399, 131 435, 151 422"
+        stroke="rgba(255,255,255,0.92)" strokeWidth="10" strokeLinecap="round" />
+      {/* Loop */}
+      <path d="M151 422 C168 437, 183 422, 178 405 C173 388, 155 395, 158 415"
+        stroke="rgba(255,255,255,0.88)" strokeWidth="9" strokeLinecap="round" />
+      {/* Tail — pressure decreasing */}
+      <path d="M158 415 C173 437, 191 434, 204 447"
+        stroke="rgba(255,255,255,0.82)" strokeWidth="7" strokeLinecap="round" />
+      {/* Terracotta dot at loop junction */}
+      <path d="M156 413 C163 407, 167 413, 161 419 C155 425, 149 419, 156 413Z"
+        fill="#d97757" />
     </svg>
   );
 }
@@ -439,7 +140,7 @@ export default function Home() {
 
   return (
     <main
-      className="flex min-h-screen flex-col items-center relative overflow-hidden"
+      className="flex h-screen flex-col items-center relative overflow-hidden"
       style={{ background: "var(--bg-0)" }}
     >
       {/* Ambient glow — terracotta tint */}
@@ -457,52 +158,48 @@ export default function Home() {
         }}
       />
 
-      {/* ═══ Hero Section ═══ */}
+      {/* ═══ Hero — illustration + text + buttons, vertically centered ═══ */}
       <section
-        className="relative z-10 flex flex-col items-center gap-6 w-full"
-        style={{ paddingTop: "10vh", paddingBottom: 48 }}
+        className="relative z-10 flex flex-col items-center justify-center flex-1 w-full"
+        style={{ paddingBottom: 16 }}
       >
-        {/* Logo */}
-        <div
-          className="flex items-center justify-center w-14 h-14 rounded-2xl text-xl font-bold animate-in"
-          style={{ background: "var(--accent)", color: "white" }}
-        >
-          S
+        {/* Illustration */}
+        <div className="animate-in" style={{ marginBottom: -12 }}>
+          <HeroIllustration />
         </div>
 
-        {/* Title + subtitle */}
-        <div className="text-center animate-in" style={{ animationDelay: "0.05s" }}>
-          <h1
-            className="text-[48px] font-bold tracking-[-0.04em]"
-            style={{ color: "var(--fg)" }}
-          >
-            sumi.web
-          </h1>
-          <p
-            className="text-[17px] mt-3 max-w-md mx-auto"
-            style={{ color: "var(--fg-3)", lineHeight: 1.6 }}
-          >
-            Build, test, and deploy real-time voice AI agents
-            with pluggable models and long-term memory
-          </p>
-        </div>
+        {/* Title */}
+        <h1
+          className="text-[44px] font-bold tracking-[-0.04em] animate-in"
+          style={{ color: "var(--fg)", animationDelay: "0.05s" }}
+        >
+          Kodama
+        </h1>
+
+        {/* Subtitle */}
+        <p
+          className="text-[15px] mt-1 animate-in"
+          style={{ color: "var(--fg-3)", fontStyle: "italic", animationDelay: "0.08s" }}
+        >
+          Real-time Voice AI Agent Platform
+        </p>
 
         {/* CTAs */}
         <div
-          className="flex items-center gap-3 mt-1 animate-in"
-          style={{ animationDelay: "0.1s" }}
+          className="flex items-center gap-3 mt-5 animate-in"
+          style={{ animationDelay: "0.12s" }}
         >
           <Link
             href="/login"
             className="btn btn-accent"
-            style={{ padding: "11px 28px", fontSize: "14px" }}
+            style={{ padding: "10px 26px", fontSize: "14px" }}
           >
             Get Started
           </Link>
           <Link
             href="/conversation"
             className="btn btn-primary"
-            style={{ padding: "11px 28px", fontSize: "14px" }}
+            style={{ padding: "10px 26px", fontSize: "14px" }}
           >
             Try Demo
           </Link>
@@ -510,54 +207,44 @@ export default function Home() {
 
         <button
           onClick={skip}
-          className="text-[11px] tracking-[0.04em] uppercase btn btn-ghost animate-in"
+          className="text-[11px] tracking-[0.04em] uppercase btn btn-ghost mt-3 animate-in"
           style={{ animationDelay: "0.15s" }}
         >
           Skip login
         </button>
       </section>
 
-      {/* ═══ SVG Illustration ═══ */}
+      {/* ═══ Feature row — bottom of viewport, horizontal ═══ */}
       <section
-        className="relative z-10 w-full flex justify-center animate-in"
-        style={{ animationDelay: "0.2s", padding: "0 24px" }}
+        className="relative z-10 w-full flex-shrink-0"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "16px 0" }}
       >
-        <HeroIllustration />
-      </section>
-
-      {/* ═══ Feature Cards ═══ */}
-      <section
-        className="relative z-10 w-full"
-        style={{ maxWidth: 800, padding: "48px 24px 80px" }}
-      >
-        <div className="grid grid-cols-2 gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-          {FEATURES.map((f, i) => (
-            <div
-              key={f.title}
-              className="card animate-in"
-              style={{
-                padding: "20px 22px",
-                animationDelay: `${0.3 + i * 0.06}s`,
-              }}
-            >
+        <div
+          className="flex justify-center gap-8 animate-in"
+          style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px", animationDelay: "0.25s" }}
+        >
+          {FEATURES.map((f) => (
+            <div key={f.title} className="flex items-center gap-3" style={{ flex: 1, maxWidth: 200 }}>
               <div
-                className="flex items-center justify-center w-9 h-9 rounded-lg mb-3"
+                className="flex items-center justify-center flex-shrink-0"
                 style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
                   background: "var(--accent-light)",
                   color: "var(--accent-text)",
                 }}
               >
                 {f.icon}
               </div>
-              <h3
-                className="text-[14px] font-semibold mb-1"
-                style={{ color: "var(--fg)" }}
-              >
-                {f.title}
-              </h3>
-              <p className="text-[12px]" style={{ color: "var(--fg-3)", lineHeight: 1.5 }}>
-                {f.desc}
-              </p>
+              <div>
+                <h3 className="text-[12px] font-semibold" style={{ color: "var(--fg)" }}>
+                  {f.title}
+                </h3>
+                <p className="text-[10px]" style={{ color: "var(--fg-3)", lineHeight: 1.4 }}>
+                  {f.desc}
+                </p>
+              </div>
             </div>
           ))}
         </div>

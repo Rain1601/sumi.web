@@ -31,6 +31,7 @@ export interface Agent {
   system_prompt: string;
   goal: string | null;
   opening_line: string | null;
+  test_scenario: string | null;
   user_prompt: string | null;
   version: number;
   status: string; // "draft" | "published"
@@ -142,11 +143,30 @@ interface CreateRoomResponse {
 
 // ─── Fetch helper ───────────────────────────────────
 
+import { useAuthStore } from "@/stores/auth";
+
+function getAuthToken(): string | null {
+  // Read token from Zustand auth store (non-reactive, direct state access)
+  try {
+    return useAuthStore.getState().token;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...headers,
       ...options?.headers,
     },
   });
@@ -165,6 +185,20 @@ export async function createRoom(agentId: string, token: string): Promise<Create
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ agent_id: agentId }),
   });
+}
+
+export interface WorkerStatus {
+  available: boolean;
+  agent_count: number;
+  message: string;
+}
+
+export async function checkWorkerStatus(): Promise<WorkerStatus> {
+  return fetchAPI("/api/rooms/worker-status");
+}
+
+export async function restartWorker(): Promise<{ ok: boolean; message: string }> {
+  return fetchAPI("/api/rooms/worker-restart", { method: "POST" });
 }
 
 // ─── Models ─────────────────────────────────────────

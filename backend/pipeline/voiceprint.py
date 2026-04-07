@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = Path(os.environ.get("SUMI_MODEL_CACHE", Path.home() / ".cache" / "sumi" / "models"))
+CACHE_DIR = Path(os.environ.get("KODAMA_MODEL_CACHE", Path.home() / ".cache" / "kodama" / "models"))
 
 _MODEL_REGISTRY: dict[str, type[EmbeddingModel]] = {}
 
@@ -169,7 +169,7 @@ def _download_file(url: str, dest: Path, desc: str = "") -> Path:
     logger.info(f"Downloading {desc or url} -> {dest}")
     tmp = dest.with_suffix(".tmp")
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "sumi-voiceprint/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "kodama-voiceprint/1.0"})
         with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as f:
             total = int(resp.headers.get("Content-Length", 0))
             downloaded = 0

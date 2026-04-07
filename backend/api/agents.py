@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.db.models import (
     Agent, AgentRule, AgentSkill, AgentTool, AgentVariable, AgentVersion, ProviderModel, gen_uuid,
 )
@@ -34,6 +34,7 @@ class AgentResponse(BaseModel):
     language: str
     is_active: bool
     opening_line: str | None = None
+    test_scenario: str | None = None
     user_prompt: str | None = None
     version: int = 1
     status: str = "draft"
@@ -65,6 +66,7 @@ class AgentCreate(BaseModel):
     voiceprint_enabled: bool = False
     language: str = "auto"
     opening_line: str | None = None
+    test_scenario: str | None = None
     user_prompt: str | None = None
     status: str = "draft"
     folder_id: str | None = None
@@ -93,6 +95,7 @@ class AgentUpdate(BaseModel):
     language: str | None = None
     is_active: bool | None = None
     opening_line: str | None = None
+    test_scenario: str | None = None
     user_prompt: str | None = None
     status: str | None = None
     folder_id: str | None = None
@@ -137,6 +140,7 @@ async def _to_response(agent: Agent, db) -> AgentResponse:
         language=agent.language,
         is_active=agent.is_active,
         opening_line=agent.opening_line,
+        test_scenario=agent.test_scenario,
         user_prompt=agent.user_prompt,
         version=agent.version,
         status=agent.status,
@@ -153,24 +157,23 @@ async def _to_response(agent: Agent, db) -> AgentResponse:
 
 
 @router.get("/", response_model=list[AgentResponse])
-async def list_agents(db: DbSession):
-    """List all agents."""
-    result = await db.execute(select(Agent).order_by(Agent.created_at))
+async def list_agents(auth: Auth, db: DbSession):
+    """List agents in current tenant."""
+    result = await db.execute(
+        select(Agent).where(Agent.tenant_id == auth.tenant_id).order_by(Agent.created_at)
+    )
     agents = result.scalars().all()
     return [await _to_response(a, db) for a in agents]
 
 
 @router.post("/", response_model=AgentResponse)
-async def create_agent(req: AgentCreate, db: DbSession):
-    """Create a new agent."""
-    # Resolve provider info from model IDs
-    asr_provider = asr_config = ""
-    tts_provider = tts_config = ""
-    nlp_provider = nlp_config = ""
-
+async def create_agent(req: AgentCreate, auth: Auth, db: DbSession):
+    """Create a new agent in current tenant."""
     for mid, ptype in [(req.asr_model_id, "asr"), (req.tts_model_id, "tts"), (req.nlp_model_id, "nlp")]:
         if mid:
-            r = await db.execute(select(ProviderModel).where(ProviderModel.id == mid))
+            r = await db.execute(select(ProviderModel).where(
+                ProviderModel.id == mid, ProviderModel.tenant_id == auth.tenant_id
+            ))
             pm = r.scalar_one_or_none()
             if not pm:
                 raise HTTPException(400, f"{ptype} model '{mid}' not found")
@@ -179,6 +182,8 @@ async def create_agent(req: AgentCreate, db: DbSession):
 
     agent = Agent(
         id=gen_uuid(),
+        tenant_id=auth.tenant_id,
+        created_by=auth.user_id,
         name_zh=req.name_zh,
         name_en=req.name_en,
         description_zh=req.description_zh,
@@ -201,6 +206,7 @@ async def create_agent(req: AgentCreate, db: DbSession):
         voiceprint_enabled=req.voiceprint_enabled,
         language=req.language,
         opening_line=req.opening_line,
+        test_scenario=req.test_scenario,
         user_prompt=req.user_prompt,
         status=req.status,
         folder_id=req.folder_id,
@@ -217,9 +223,9 @@ async def create_agent(req: AgentCreate, db: DbSession):
 
 
 @router.get("/{agent_id}", response_model=AgentResponse)
-async def get_agent(agent_id: str, db: DbSession):
-    """Get a specific agent."""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+async def get_agent(agent_id: str, auth: Auth, db: DbSession):
+    """Get a specific agent in current tenant."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant_id))
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -227,9 +233,9 @@ async def get_agent(agent_id: str, db: DbSession):
 
 
 @router.patch("/{agent_id}", response_model=AgentResponse)
-async def update_agent(agent_id: str, req: AgentUpdate, db: DbSession):
-    """Update an agent."""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+async def update_agent(agent_id: str, req: AgentUpdate, auth: Auth, db: DbSession):
+    """Update an agent in current tenant."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant_id))
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -238,7 +244,7 @@ async def update_agent(agent_id: str, req: AgentUpdate, db: DbSession):
                   "asr_model_id", "tts_model_id", "nlp_model_id",
                   "vad_mode", "vad_config", "tools", "interruption_policy",
                   "voiceprint_enabled", "language", "is_active",
-                  "opening_line", "user_prompt", "status", "folder_id", "call_control",
+                  "opening_line", "test_scenario", "user_prompt", "status", "folder_id", "call_control",
                   "role", "task_chain", "rules", "optimization"]:
         value = getattr(req, field)
         if value is not None:
@@ -250,9 +256,9 @@ async def update_agent(agent_id: str, req: AgentUpdate, db: DbSession):
 
 
 @router.delete("/{agent_id}")
-async def delete_agent(agent_id: str, db: DbSession):
-    """Delete an agent."""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+async def delete_agent(agent_id: str, auth: Auth, db: DbSession):
+    """Delete an agent in current tenant."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant_id))
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -262,9 +268,9 @@ async def delete_agent(agent_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/duplicate", response_model=AgentResponse)
-async def duplicate_agent(agent_id: str, db: DbSession):
-    """Duplicate an agent with all its config."""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+async def duplicate_agent(agent_id: str, auth: Auth, db: DbSession):
+    """Duplicate an agent within current tenant."""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant_id))
     original = result.scalar_one_or_none()
     if not original:
         raise HTTPException(404, "Agent not found")
@@ -272,6 +278,8 @@ async def duplicate_agent(agent_id: str, db: DbSession):
     new_id = gen_uuid()
     clone = Agent(
         id=new_id,
+        tenant_id=auth.tenant_id,
+        created_by=auth.user_id,
         name_zh=f"{original.name_zh} (Copy)",
         name_en=f"{original.name_en} (Copy)",
         description_zh=original.description_zh,
@@ -294,6 +302,7 @@ async def duplicate_agent(agent_id: str, db: DbSession):
         voiceprint_enabled=original.voiceprint_enabled,
         language=original.language,
         opening_line=original.opening_line,
+        test_scenario=original.test_scenario,
         user_prompt=original.user_prompt,
         version=1,
         status="draft",
@@ -375,6 +384,7 @@ def _snapshot_agent(agent: Agent) -> dict:
         "voiceprint_enabled": agent.voiceprint_enabled,
         "language": agent.language,
         "opening_line": agent.opening_line,
+        "test_scenario": agent.test_scenario,
         "user_prompt": agent.user_prompt,
         "call_control": agent.call_control,
         "role": agent.role,
@@ -389,9 +399,9 @@ class PublishRequest(BaseModel):
 
 
 @router.post("/{agent_id}/publish", response_model=AgentResponse)
-async def publish_agent(agent_id: str, db: DbSession, req: PublishRequest | None = None):
+async def publish_agent(agent_id: str, auth: Auth, db: DbSession, req: PublishRequest | None = None):
     """Promote agent from draft to published, increment version, snapshot config."""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    result = await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == auth.tenant_id))
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(404, "Agent not found")
@@ -427,7 +437,7 @@ class VersionResponse(BaseModel):
 
 
 @router.get("/{agent_id}/versions", response_model=list[VersionResponse])
-async def list_versions(agent_id: str, db: DbSession):
+async def list_versions(agent_id: str, auth: Auth, db: DbSession):
     """List all published versions of an agent."""
     result = await db.execute(
         select(AgentVersion)
@@ -445,7 +455,7 @@ async def list_versions(agent_id: str, db: DbSession):
 
 
 @router.get("/{agent_id}/versions/{version_id}", response_model=dict)
-async def get_version(agent_id: str, version_id: str, db: DbSession):
+async def get_version(agent_id: str, version_id: str, auth: Auth, db: DbSession):
     """Get the full snapshot of a specific version."""
     result = await db.execute(
         select(AgentVersion).where(AgentVersion.id == version_id, AgentVersion.agent_id == agent_id)
@@ -465,7 +475,7 @@ async def get_version(agent_id: str, version_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/versions/{version_id}/rollback", response_model=AgentResponse)
-async def rollback_to_version(agent_id: str, version_id: str, db: DbSession):
+async def rollback_to_version(agent_id: str, version_id: str, auth: Auth, db: DbSession):
     """Rollback agent to a previous version's config. Creates a new draft."""
     result = await db.execute(
         select(AgentVersion).where(AgentVersion.id == version_id, AgentVersion.agent_id == agent_id)
@@ -484,7 +494,7 @@ async def rollback_to_version(agent_id: str, version_id: str, db: DbSession):
     for field in ["name_zh", "name_en", "description_zh", "description_en", "system_prompt",
                   "goal", "asr_model_id", "tts_model_id", "nlp_model_id",
                   "vad_mode", "vad_config", "tools", "interruption_policy",
-                  "voiceprint_enabled", "language", "opening_line", "user_prompt",
+                  "voiceprint_enabled", "language", "opening_line", "test_scenario", "user_prompt",
                   "call_control", "role", "task_chain", "rules", "optimization"]:
         if field in snap:
             setattr(agent, field, snap[field])
@@ -521,7 +531,7 @@ class RuleUpdate(BaseModel):
 
 
 @router.get("/{agent_id}/rules", response_model=list[RuleResponse])
-async def list_rules(agent_id: str, db: DbSession):
+async def list_rules(agent_id: str, auth: Auth, db: DbSession):
     result = await db.execute(
         select(AgentRule).where(AgentRule.agent_id == agent_id).order_by(AgentRule.priority.desc())
     )
@@ -531,7 +541,7 @@ async def list_rules(agent_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/rules", response_model=RuleResponse)
-async def create_rule(agent_id: str, req: RuleCreate, db: DbSession):
+async def create_rule(agent_id: str, req: RuleCreate, auth: Auth, db: DbSession):
     rule = AgentRule(
         id=gen_uuid(), agent_id=agent_id,
         rule_type=req.rule_type, content=req.content,
@@ -545,7 +555,7 @@ async def create_rule(agent_id: str, req: RuleCreate, db: DbSession):
 
 
 @router.patch("/{agent_id}/rules/{rule_id}", response_model=RuleResponse)
-async def update_rule(agent_id: str, rule_id: str, req: RuleUpdate, db: DbSession):
+async def update_rule(agent_id: str, rule_id: str, req: RuleUpdate, auth: Auth, db: DbSession):
     result = await db.execute(
         select(AgentRule).where(AgentRule.id == rule_id, AgentRule.agent_id == agent_id)
     )
@@ -563,7 +573,7 @@ async def update_rule(agent_id: str, rule_id: str, req: RuleUpdate, db: DbSessio
 
 
 @router.delete("/{agent_id}/rules/{rule_id}")
-async def delete_rule(agent_id: str, rule_id: str, db: DbSession):
+async def delete_rule(agent_id: str, rule_id: str, auth: Auth, db: DbSession):
     result = await db.execute(
         select(AgentRule).where(AgentRule.id == rule_id, AgentRule.agent_id == agent_id)
     )

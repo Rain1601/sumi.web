@@ -21,7 +21,7 @@ from backend.services.prompts.conversation_test import (
     SIMULATED_USER_SYSTEM,
 )
 
-logger = logging.getLogger("sumi.conversation_test")
+logger = logging.getLogger("kodama.conversation_test")
 
 
 def _sse(event: str, data: dict) -> str:

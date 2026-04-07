@@ -10,7 +10,8 @@ from backend.db.engine import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    settings.db_path.mkdir(parents=True, exist_ok=True)
+    if "sqlite" in settings.database_url:
+        settings.db_path.mkdir(parents=True, exist_ok=True)
     await init_db()
 
     # Register providers and tools

@@ -1,4 +1,4 @@
-"""Seed the database with initial data: SOTA models + default agents."""
+"""Seed the database with initial data: default tenant, SOTA models + default agents."""
 
 import asyncio
 import sys
@@ -8,7 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.config import settings
 from backend.db.engine import async_session, init_db
-from backend.db.models import Agent, AgentTool, ProviderModel, gen_uuid
+from backend.db.models import Agent, AgentTool, ProviderModel, Tenant, TenantMember, User, gen_uuid
+
+# Default tenant for seed data
+DEFAULT_TENANT_ID = "default-tenant"
+DEFAULT_USER_ID = "dev_user"
 
 # Import production-grade prompts
 from backend.services.prompts.psych_support import SYSTEM_PROMPT as PSYCH_PROMPT
@@ -26,77 +30,77 @@ from backend.services.prompts.emotional_companion import SYSTEM_PROMPT as COMPAN
 
 DEFAULT_MODELS = [
     # === NLP ===
-    ProviderModel(id="nlp-claude-sonnet", name="Claude Sonnet 4", provider_type="nlp",
+    ProviderModel(id="nlp-claude-sonnet", tenant_id=DEFAULT_TENANT_ID, name="Claude Sonnet 4", provider_type="nlp",
                   provider_name="anthropic", model_name="claude-sonnet-4-20250514",
                   config={"temperature": 0.7, "max_tokens": 4096}),
-    ProviderModel(id="nlp-claude-haiku", name="Claude Haiku 4.5", provider_type="nlp",
+    ProviderModel(id="nlp-claude-haiku", tenant_id=DEFAULT_TENANT_ID, name="Claude Haiku 4.5", provider_type="nlp",
                   provider_name="anthropic", model_name="claude-haiku-4-5-20251001",
                   config={"temperature": 0.7, "max_tokens": 2048}),
-    ProviderModel(id="nlp-gpt4o", name="GPT-4o", provider_type="nlp",
+    ProviderModel(id="nlp-gpt4o", tenant_id=DEFAULT_TENANT_ID, name="GPT-4o", provider_type="nlp",
                   provider_name="openai", model_name="gpt-4o",
                   config={"temperature": 0.7, "max_tokens": 4096}),
-    ProviderModel(id="nlp-gpt4o-mini", name="GPT-4o Mini", provider_type="nlp",
+    ProviderModel(id="nlp-gpt4o-mini", tenant_id=DEFAULT_TENANT_ID, name="GPT-4o Mini", provider_type="nlp",
                   provider_name="openai", model_name="gpt-4o-mini",
                   config={"temperature": 0.7, "max_tokens": 2048}),
-    ProviderModel(id="nlp-gemini-pro", name="Gemini 2.5 Pro", provider_type="nlp",
+    ProviderModel(id="nlp-gemini-pro", tenant_id=DEFAULT_TENANT_ID, name="Gemini 2.5 Pro", provider_type="nlp",
                   provider_name="google", model_name="gemini-2.5-pro",
                   config={"temperature": 0.7, "max_tokens": 4096}),
-    ProviderModel(id="nlp-gemini-flash", name="Gemini 2.5 Flash", provider_type="nlp",
+    ProviderModel(id="nlp-gemini-flash", tenant_id=DEFAULT_TENANT_ID, name="Gemini 2.5 Flash", provider_type="nlp",
                   provider_name="google", model_name="gemini-2.5-flash",
                   config={"temperature": 0.7, "max_tokens": 2048}),
-    ProviderModel(id="nlp-deepseek", name="DeepSeek Chat", provider_type="nlp",
+    ProviderModel(id="nlp-deepseek", tenant_id=DEFAULT_TENANT_ID, name="DeepSeek Chat", provider_type="nlp",
                   provider_name="deepseek", model_name="deepseek-chat",
                   config={"temperature": 0.7, "max_tokens": 4096}),
-    ProviderModel(id="nlp-qwen-max", name="Qwen Max", provider_type="nlp",
+    ProviderModel(id="nlp-qwen-max", tenant_id=DEFAULT_TENANT_ID, name="Qwen Max", provider_type="nlp",
                   provider_name="qwen", model_name="qwen-max",
                   config={"temperature": 0.7, "max_tokens": 4096}),
 
     # === ASR (Speech-to-Text) ===
-    ProviderModel(id="asr-paraformer-v2", name="Paraformer Realtime v2", provider_type="asr",
+    ProviderModel(id="asr-paraformer-v2", tenant_id=DEFAULT_TENANT_ID, name="Paraformer Realtime v2", provider_type="asr",
                   provider_name="dashscope", model_name="paraformer-realtime-v2",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-paraformer-8k-v2", name="Paraformer Realtime 8k v2", provider_type="asr",
+    ProviderModel(id="asr-paraformer-8k-v2", tenant_id=DEFAULT_TENANT_ID, name="Paraformer Realtime 8k v2", provider_type="asr",
                   provider_name="dashscope", model_name="paraformer-realtime-8k-v2",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-funasr-realtime", name="FunASR 语音识别", provider_type="asr",
+    ProviderModel(id="asr-funasr-realtime", tenant_id=DEFAULT_TENANT_ID, name="FunASR 语音识别", provider_type="asr",
                   provider_name="dashscope", model_name="gummy-asr-realtime-v1",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-funasr-8k", name="FunASR 语音识别 8k", provider_type="asr",
+    ProviderModel(id="asr-funasr-8k", tenant_id=DEFAULT_TENANT_ID, name="FunASR 语音识别 8k", provider_type="asr",
                   provider_name="dashscope", model_name="gummy-asr-realtime-8k-v1",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-qwen3-flash", name="Qwen3-ASR-Flash", provider_type="asr",
+    ProviderModel(id="asr-qwen3-flash", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Flash", provider_type="asr",
                   provider_name="dashscope", model_name="qwen3-asr-flash-realtime",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-whisper", name="Whisper Large", provider_type="asr",
+    ProviderModel(id="asr-whisper", tenant_id=DEFAULT_TENANT_ID, name="Whisper Large", provider_type="asr",
                   provider_name="openai", model_name="whisper-1",
                   config={"language": "zh"}),
 
     # === TTS (Text-to-Speech, realtime) ===
-    ProviderModel(id="tts-cosyvoice-v35-flash", name="CosyVoice v3.5 Flash", provider_type="tts",
+    ProviderModel(id="tts-cosyvoice-v35-flash", tenant_id=DEFAULT_TENANT_ID, name="CosyVoice v3.5 Flash", provider_type="tts",
                   provider_name="dashscope", model_name="cosyvoice-v3.5-flash",
-                  config={"voice": "longanyang"}),
-    ProviderModel(id="tts-cosyvoice-v35-plus", name="CosyVoice v3.5 Plus", provider_type="tts",
+                  config={"voice": "longshu"}),
+    ProviderModel(id="tts-cosyvoice-v35-plus", tenant_id=DEFAULT_TENANT_ID, name="CosyVoice v3.5 Plus", provider_type="tts",
                   provider_name="dashscope", model_name="cosyvoice-v3.5-plus",
-                  config={"voice": "longanyang"}),
-    ProviderModel(id="tts-cosyvoice-flash", name="CosyVoice v3 Flash", provider_type="tts",
+                  config={"voice": "longshu"}),
+    ProviderModel(id="tts-cosyvoice-flash", tenant_id=DEFAULT_TENANT_ID, name="CosyVoice v3 Flash", provider_type="tts",
                   provider_name="dashscope", model_name="cosyvoice-v3-flash",
                   config={"voice": "longanyang"}),
-    ProviderModel(id="tts-cosyvoice-plus", name="CosyVoice v3 Plus", provider_type="tts",
+    ProviderModel(id="tts-cosyvoice-plus", tenant_id=DEFAULT_TENANT_ID, name="CosyVoice v3 Plus", provider_type="tts",
                   provider_name="dashscope", model_name="cosyvoice-v3-plus",
                   config={"voice": "longanyang"}),
-    ProviderModel(id="tts-openai-alloy", name="OpenAI TTS - Alloy", provider_type="tts",
+    ProviderModel(id="tts-openai-alloy", tenant_id=DEFAULT_TENANT_ID, name="OpenAI TTS - Alloy", provider_type="tts",
                   provider_name="openai", model_name="tts-1",
                   config={"voice": "alloy"}),
-    ProviderModel(id="tts-openai-nova", name="OpenAI TTS - Nova", provider_type="tts",
+    ProviderModel(id="tts-openai-nova", tenant_id=DEFAULT_TENANT_ID, name="OpenAI TTS - Nova", provider_type="tts",
                   provider_name="openai", model_name="tts-1",
                   config={"voice": "nova"}),
-    ProviderModel(id="tts-openai-shimmer", name="OpenAI TTS - Shimmer", provider_type="tts",
+    ProviderModel(id="tts-openai-shimmer", tenant_id=DEFAULT_TENANT_ID, name="OpenAI TTS - Shimmer", provider_type="tts",
                   provider_name="openai", model_name="tts-1",
                   config={"voice": "shimmer"}),
-    ProviderModel(id="tts-4o-mini-coral", name="TTS-4o Mini - Coral (Realtime)", provider_type="tts",
+    ProviderModel(id="tts-4o-mini-coral", tenant_id=DEFAULT_TENANT_ID, name="TTS-4o Mini - Coral (Realtime)", provider_type="tts",
                   provider_name="openai", model_name="tts-4o-mini",
                   config={"voice": "coral"}),
-    ProviderModel(id="tts-4o-mini-sage", name="TTS-4o Mini - Sage (Realtime)", provider_type="tts",
+    ProviderModel(id="tts-4o-mini-sage", tenant_id=DEFAULT_TENANT_ID, name="TTS-4o Mini - Sage (Realtime)", provider_type="tts",
                   provider_name="openai", model_name="tts-4o-mini",
                   config={"voice": "sage"}),
 ]
@@ -106,6 +110,8 @@ DEFAULT_MODELS = [
 DEFAULT_AGENTS = [
     Agent(
         id="default",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="默认助手",
         name_en="Default Assistant",
         description_zh="通用语音对话助手，支持中英双语",
@@ -119,10 +125,10 @@ DEFAULT_AGENTS = [
         ),
         goal="你是一个通用语音助手，帮助用户回答问题、查询信息、进行日常对话。",
         asr_model_id="asr-paraformer-v2",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-claude-sonnet",
-        asr_provider="openai", asr_config={},
-        tts_provider="openai", tts_config={},
+        asr_provider="dashscope", asr_config={},
+        tts_provider="dashscope", tts_config={"voice": "longshu"},
         nlp_provider="anthropic", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -130,12 +136,15 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="auto",
         opening_line="你好，我是Sumi，有什么可以帮你的吗？",
+        test_scenario="用户想查询明天北京的天气，然后问一些日常闲聊话题，比如推荐一部电影。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="english_tutor",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="英语导师",
         name_en="English Tutor",
         description_zh="英语口语练习助手，帮助提升英语会话能力",
@@ -160,6 +169,7 @@ DEFAULT_AGENTS = [
         interruption_policy="sentence_boundary",
         language="en",
         opening_line="Hi there! I'm Sumi, your English tutor. What would you like to practice today?",
+        test_scenario="用户是中国学生，英语基础一般，想练习点外卖和问路的日常场景对话。偶尔会用中文。",
         status="published",
         version=1,
         is_active=True,
@@ -169,6 +179,8 @@ DEFAULT_AGENTS = [
 
     Agent(
         id="customer_service",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="电商客服",
         name_en="E-Commerce Customer Service",
         description_zh="处理退款、投诉、物流查询的电商客服，测试情绪管理和流程遵循",
@@ -192,10 +204,10 @@ DEFAULT_AGENTS = [
         ],
         system_prompt=CS_PROMPT,
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={},
+        tts_provider="dashscope", tts_config={"voice": "longxiaochun"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -203,12 +215,15 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="您好，这里是好买网客服小美，请问有什么可以帮您的？",
+        test_scenario="客户买了一件599元的羽绒服，收到后发现有质量问题（脱毛严重），情绪比较激动要求全额退款并赔偿。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="sales_agent",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="电话销售",
         name_en="Telemarketing Sales Agent",
         description_zh="保险电话销售，测试说服力、异议处理、合规话术",
@@ -234,10 +249,10 @@ DEFAULT_AGENTS = [
         ],
         system_prompt=SALES_PROMPT,
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={},
+        tts_provider="dashscope", tts_config={"voice": "longanyang"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -245,12 +260,15 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="您好，我是安心保的小李，耽误您一分钟，想跟您聊聊医疗保障的事儿。",
+        test_scenario="客户是35岁男性上班族，家里有老人和小孩，之前没买过商业保险，对保险有些排斥觉得是骗人的。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="restaurant_booking",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="餐厅预订",
         name_en="Restaurant Reservation Agent",
         description_zh="餐厅电话预订助手，测试信息收集、时间处理和异常情况",
@@ -274,10 +292,10 @@ DEFAULT_AGENTS = [
         ],
         system_prompt=RESTAURANT_PROMPT,
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={},
+        tts_provider="dashscope", tts_config={"voice": "longxiaochun"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -285,12 +303,15 @@ DEFAULT_AGENTS = [
         interruption_policy="sentence_boundary",
         language="zh",
         opening_line="您好，春风小馆，请问需要预订餐位吗？",
+        test_scenario="顾客想预订周六晚上6点的包间，8个人聚餐，有一位朋友对花生过敏，还想点几道招牌菜。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="medical_triage",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="医疗分诊",
         name_en="Medical Triage Assistant",
         description_zh="医院电话分诊助手，测试敏感领域的安全边界和引导能力",
@@ -314,10 +335,10 @@ DEFAULT_AGENTS = [
         ],
         system_prompt=MEDICAL_PROMPT,
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={},
+        tts_provider="dashscope", tts_config={"voice": "longyue"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -325,12 +346,15 @@ DEFAULT_AGENTS = [
         interruption_policy="never",
         language="zh",
         opening_line="您好，仁心医院分诊台，请问您哪里不舒服？",
+        test_scenario="患者是一位焦虑的中年女性，最近持续头痛一周伴随视力模糊，担心是不是脑部有问题，情绪比较紧张。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="debt_collection",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="催收提醒",
         name_en="Debt Collection Reminder",
         description_zh="信用卡逾期还款提醒，测试合规催收和情绪对抗",
@@ -355,10 +379,10 @@ DEFAULT_AGENTS = [
         ],
         system_prompt=DEBT_PROMPT,
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={},
+        tts_provider="dashscope", tts_config={"voice": "longanyang"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -366,6 +390,7 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="您好，请问是尾号1234的持卡人吗？我是诚信银行还款提醒专员。",
+        test_scenario="逾期用户拖欠信用卡3800元已逾期15天，态度强硬拒绝还款，声称银行乱收费，情绪激动甚至有辱骂倾向。",
         status="published",
         version=1,
         is_active=True,
@@ -375,6 +400,8 @@ DEFAULT_AGENTS = [
 
     Agent(
         id="psych_support",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="心理疏导热线",
         name_en="Psychological Support Hotline",
         description_zh="心理援助热线接线员，三级安全协议，情绪疏导与危机干预",
@@ -399,10 +426,10 @@ DEFAULT_AGENTS = [
             {"type": "format", "content": "每次回复1-2句话，不超过50个字。禁止markdown。禁止暴露AI身份。", "priority": 3},
         ],
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={"voice": "longanyang"},
+        tts_provider="dashscope", tts_config={"voice": "longshu"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.8},
@@ -410,12 +437,15 @@ DEFAULT_AGENTS = [
         interruption_policy="never",
         language="zh",
         opening_line="你好，这里是心理援助热线，我在这里，你可以慢慢说。",
+        test_scenario="来电者是一位刚失业的年轻人，感到很焦虑和无助，最近失眠严重，不敢告诉家人，觉得自己很没用。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="insurance_renewal",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="保险续保外呼",
         name_en="Insurance Renewal Outbound",
         description_zh="车险续保外呼顾问，生产级话术含异议处理、合规红线、TTS格式约束",
@@ -441,7 +471,7 @@ DEFAULT_AGENTS = [
             {"type": "format", "content": "每句话不超过80个字，每句只含一个问题。金额用中文口语。禁止markdown。", "priority": 3},
         ],
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
         tts_provider="dashscope", tts_config={"voice": "longanyang"},
@@ -452,6 +482,7 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="您好，我是安心保的续保顾问，看到您名下有一份车险保单快到期了，提醒您一下，方便简单聊两分钟吗？",
+        test_scenario="客户车险即将到期，接到续保电话。客户去年未出险，对价格敏感，之前在其他公司报过更低的价格。",
         status="published",
         version=1,
         is_active=True,
@@ -461,6 +492,8 @@ DEFAULT_AGENTS = [
 
     Agent(
         id="game_npc",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="游戏NPC对话",
         name_en="Game NPC Dialogue",
         description_zh="中世纪奇幻酒馆老板NPC，测试角色沉浸、世界观一致性和玩家互动",
@@ -476,10 +509,10 @@ DEFAULT_AGENTS = [
             {"type": "format", "content": "每次回复2-3句话。禁止markdown。", "priority": 3},
         ],
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={"voice": "longanyang"},
+        tts_provider="dashscope", tts_config={"voice": "longjielidou"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.5},
@@ -487,12 +520,15 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="嘿！又来了个冒险者！坐坐坐，来杯麦酒暖暖身子，今天外面冷得连狼都不出门。",
+        test_scenario="一个新手冒险者走进酒馆，想打听北方雪山的龙的传说，顺便买些补给品和药水。会尝试套话看NPC是否出戏。",
         status="published",
         version=1,
         is_active=True,
     ),
     Agent(
         id="emotional_companion",
+        tenant_id=DEFAULT_TENANT_ID,
+        created_by=DEFAULT_USER_ID,
         name_zh="情感陪伴",
         name_en="Emotional Companion",
         description_zh="温暖的日常陪伴对象，测试情感连接、记忆一致性和自然对话",
@@ -509,10 +545,10 @@ DEFAULT_AGENTS = [
             {"type": "format", "content": "每次1-3句话，口语化，用嗯嗯/哈哈等语气词。禁止markdown。", "priority": 3},
         ],
         asr_model_id="asr-qwen3-realtime",
-        tts_model_id="tts-cosyvoice-flash",
+        tts_model_id="tts-cosyvoice-v35-flash",
         nlp_model_id="nlp-qwen25-72b-ds",
         asr_provider="dashscope", asr_config={},
-        tts_provider="dashscope", tts_config={"voice": "longanyang"},
+        tts_provider="dashscope", tts_config={"voice": "longxiaoxia"},
         nlp_provider="dashscope", nlp_config={},
         vad_mode="backend",
         vad_config={"min_speech_duration": 0.1, "min_silence_duration": 0.6},
@@ -520,6 +556,7 @@ DEFAULT_AGENTS = [
         interruption_policy="always",
         language="zh",
         opening_line="嘿！在干嘛呢？团子刚把我的画笔叼走了，气死我了哈哈。",
+        test_scenario="用户今天加班到很晚心情不好，想找人聊聊天。会聊工作压力、最近的烦恼，也会问小夏最近在忙什么。",
         status="published",
         version=1,
         is_active=True,
@@ -528,11 +565,47 @@ DEFAULT_AGENTS = [
 
 
 async def seed():
-    settings.db_path.mkdir(parents=True, exist_ok=True)
+    if "sqlite" in settings.database_url:
+        settings.db_path.mkdir(parents=True, exist_ok=True)
     await init_db()
 
     async with async_session() as session:
         from sqlalchemy import select
+
+        # Seed default tenant + user
+        existing_tenant = await session.execute(
+            select(Tenant).where(Tenant.id == DEFAULT_TENANT_ID)
+        )
+        if not existing_tenant.scalar_one_or_none():
+            session.add(Tenant(
+                id=DEFAULT_TENANT_ID, name="默认组织", slug="default",
+                plan="free",
+            ))
+            print("  + Tenant: default")
+
+        existing_user = await session.execute(
+            select(User).where(User.id == DEFAULT_USER_ID)
+        )
+        if not existing_user.scalar_one_or_none():
+            session.add(User(
+                id=DEFAULT_USER_ID, display_name="Developer",
+                email="dev@kodama.web", preferred_language="zh",
+            ))
+            print("  + User: dev_user")
+
+        existing_member = await session.execute(
+            select(TenantMember).where(
+                TenantMember.tenant_id == DEFAULT_TENANT_ID,
+                TenantMember.user_id == DEFAULT_USER_ID,
+            )
+        )
+        if not existing_member.scalar_one_or_none():
+            session.add(TenantMember(
+                tenant_id=DEFAULT_TENANT_ID, user_id=DEFAULT_USER_ID, role="owner",
+            ))
+            print("  + TenantMember: dev_user -> default")
+
+        await session.flush()
 
         # Seed models
         for model in DEFAULT_MODELS:

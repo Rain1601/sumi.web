@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, func
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.db.models import Annotation, gen_uuid
 
 router = APIRouter()
@@ -62,7 +62,7 @@ def _to_response(a: Annotation) -> AnnotationResponse:
 
 
 @router.get("/", response_model=list[AnnotationResponse])
-async def list_annotations(conversation_id: str | None = None, db: DbSession = None):
+async def list_annotations(auth: Auth, conversation_id: str | None = None, db: DbSession = None):
     q = select(Annotation)
     if conversation_id:
         q = q.where(Annotation.conversation_id == conversation_id)
@@ -72,7 +72,7 @@ async def list_annotations(conversation_id: str | None = None, db: DbSession = N
 
 
 @router.post("/", response_model=AnnotationResponse)
-async def create_annotation(req: AnnotationCreate, db: DbSession):
+async def create_annotation(req: AnnotationCreate, auth: Auth, db: DbSession):
     ann = Annotation(
         id=gen_uuid(),
         conversation_id=req.conversation_id,
@@ -93,7 +93,7 @@ async def create_annotation(req: AnnotationCreate, db: DbSession):
 
 
 @router.patch("/{annotation_id}", response_model=AnnotationResponse)
-async def update_annotation(annotation_id: str, req: AnnotationUpdate, db: DbSession):
+async def update_annotation(annotation_id: str, req: AnnotationUpdate, auth: Auth, db: DbSession):
     result = await db.execute(select(Annotation).where(Annotation.id == annotation_id))
     ann = result.scalar_one_or_none()
     if not ann:
@@ -108,7 +108,7 @@ async def update_annotation(annotation_id: str, req: AnnotationUpdate, db: DbSes
 
 
 @router.delete("/{annotation_id}")
-async def delete_annotation(annotation_id: str, db: DbSession):
+async def delete_annotation(annotation_id: str, auth: Auth, db: DbSession):
     result = await db.execute(select(Annotation).where(Annotation.id == annotation_id))
     ann = result.scalar_one_or_none()
     if not ann:
@@ -119,7 +119,7 @@ async def delete_annotation(annotation_id: str, db: DbSession):
 
 
 @router.get("/stats", response_model=AnnotationStats)
-async def annotation_stats(conversation_id: str | None = None, db: DbSession = None):
+async def annotation_stats(auth: Auth, conversation_id: str | None = None, db: DbSession = None):
     q = select(Annotation)
     if conversation_id:
         q = q.where(Annotation.conversation_id == conversation_id)

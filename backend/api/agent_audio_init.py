@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.config import settings
 from backend.db.models import Agent
 from backend.services.audio_init import init_from_audio_stream
@@ -27,6 +27,7 @@ AUDIO_INIT_DIR = Path("data/audio/init")
 async def init_agent_from_audio(
     agent_id: str,
     file: UploadFile,
+    auth: Auth,
     db: DbSession,
 ):
     """Upload an audio file and return an SSE stream with transcription + SOP extraction."""

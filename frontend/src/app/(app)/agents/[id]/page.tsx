@@ -1791,12 +1791,14 @@ interface ConvEvaluation {
 function ConversationTestModal({
   onClose,
   agentId,
+  defaultScenario = "",
 }: {
   onClose: () => void;
   agentId: string;
+  defaultScenario?: string;
 }) {
   const [step, setStep] = useState<ConvTestStep>("config");
-  const [scenario, setScenario] = useState("");
+  const [scenario, setScenario] = useState(defaultScenario);
   const [persona, setPersona] = useState("");
   const [maxTurns, setMaxTurns] = useState(10);
   const [evaluate, setEvaluate] = useState(true);
@@ -2204,12 +2206,14 @@ function ConversationTestModal({
 function VoiceTestModal({
   onClose,
   agentId,
+  defaultScenario = "",
 }: {
   onClose: () => void;
   agentId: string;
+  defaultScenario?: string;
 }) {
   const [step, setStep] = useState<ConvTestStep>("config");
-  const [scenario, setScenario] = useState("");
+  const [scenario, setScenario] = useState(defaultScenario);
   const [persona, setPersona] = useState("");
   const [maxTurns, setMaxTurns] = useState(10);
   const [evaluate, setEvaluate] = useState(true);
@@ -3072,8 +3076,6 @@ export default function AgentDetailPage() {
         style={{
           padding: "12px 24px",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "var(--bg-1)",
-          backdropFilter: "var(--glass-blur-light)",
           flexShrink: 0,
         }}
       >
@@ -3511,6 +3513,7 @@ export default function AgentDetailPage() {
         <ConversationTestModal
           onClose={() => setConvTestOpen(false)}
           agentId={agentId}
+          defaultScenario={agent?.test_scenario || ""}
         />
       )}
 
@@ -3519,6 +3522,7 @@ export default function AgentDetailPage() {
         <VoiceTestModal
           onClose={() => setVoiceTestOpen(false)}
           agentId={agentId}
+          defaultScenario={agent?.test_scenario || ""}
         />
       )}
     </div>

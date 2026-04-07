@@ -24,7 +24,7 @@ from backend.services.prompts.sop_extraction import (
     REPAIR_PROMPT,
 )
 
-logger = logging.getLogger("sumi.audio_init")
+logger = logging.getLogger("kodama.audio_init")
 
 # DashScope File Transcription API
 DASHSCOPE_TRANSCRIPTION_URL = "https://dashscope.aliyuncs.com/api/v1/services/audio/asr/transcription"

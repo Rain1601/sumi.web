@@ -1,80 +1,85 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  onAuthStateChanged,
+} from "firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase";
 import { useAuthStore } from "@/stores/auth";
+
+const googleProvider = new GoogleAuthProvider();
+const githubProvider = new GithubAuthProvider();
 
 export function useAuth() {
   const { setAuth, clearAuth, isAuthenticated } = useAuthStore();
-  const supabase = createClient();
 
   useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    const auth = getFirebaseAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const token = await user.getIdToken();
         setAuth(
-          session.user.id,
-          session.access_token,
-          session.user.user_metadata?.full_name || session.user.email || undefined
-        );
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setAuth(
-          session.user.id,
-          session.access_token,
-          session.user.user_metadata?.full_name || session.user.email || undefined
+          user.uid,
+          token,
+          user.displayName || user.email || undefined
         );
       } else {
         clearAuth();
       }
     });
+    return () => unsubscribe();
+  }, [setAuth, clearAuth]);
 
-    return () => subscription.unsubscribe();
-  }, [supabase, setAuth, clearAuth]);
+  // Auto-refresh token before expiry
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const auth = getFirebaseAuth();
+      const user = auth.currentUser;
+      if (user) {
+        const token = await user.getIdToken(true);
+        setAuth(user.uid, token, user.displayName || user.email || undefined);
+      }
+    }, 50 * 60 * 1000); // Refresh every 50 minutes (tokens expire in 60)
+    return () => clearInterval(interval);
+  }, [setAuth]);
 
   const signInWithGoogle = useCallback(async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/conversation` },
-    });
-  }, [supabase]);
+    const auth = getFirebaseAuth();
+    await signInWithPopup(auth, googleProvider);
+  }, []);
 
   const signInWithGitHub = useCallback(async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: { redirectTo: `${window.location.origin}/conversation` },
-    });
-  }, [supabase]);
+    const auth = getFirebaseAuth();
+    await signInWithPopup(auth, githubProvider);
+  }, []);
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
+      const auth = getFirebaseAuth();
+      await signInWithEmailAndPassword(auth, email, password);
     },
-    [supabase]
+    []
   );
 
   const signUpWithEmail = useCallback(
     async (email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      const auth = getFirebaseAuth();
+      await createUserWithEmailAndPassword(auth, email, password);
     },
-    [supabase]
+    []
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    const auth = getFirebaseAuth();
+    await firebaseSignOut(auth);
     clearAuth();
-  }, [supabase, clearAuth]);
+  }, [clearAuth]);
 
   return {
     isAuthenticated,

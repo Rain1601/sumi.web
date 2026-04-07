@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+*.egg-info
+
+# Node
+frontend/node_modules
+frontend/.next
+
+# Data (local dev only)
+data/
+chroma_data/
+*.db
+
+# IDE
+.idea
+.vscode
+
+# Env files with secrets
+.env
+.env.local
+frontend/.env.local
+
+# Docs / deploy configs
+docs/
+deploy/
+.claude/

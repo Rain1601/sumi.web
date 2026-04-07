@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ class LatencySummary(BaseModel):
 
 
 @router.get("/{conversation_id}", response_model=list[TraceEventResponse])
-async def get_traces(conversation_id: str, db: DbSession):
+async def get_traces(conversation_id: str, auth: Auth, db: DbSession):
     """Get trace events for a conversation."""
     from backend.db.models import TraceEvent
 
@@ -72,7 +72,7 @@ async def get_traces(conversation_id: str, db: DbSession):
 
 
 @router.get("/{conversation_id}/turns", response_model=list[TurnResponse])
-async def get_turns(conversation_id: str, db: DbSession):
+async def get_turns(conversation_id: str, auth: Auth, db: DbSession):
     """Get trace events grouped by turn."""
     from backend.db.models import TraceEvent
 
@@ -130,7 +130,7 @@ async def get_turns(conversation_id: str, db: DbSession):
 
 
 @router.get("/{conversation_id}/summary", response_model=LatencySummary)
-async def get_summary(conversation_id: str, db: DbSession):
+async def get_summary(conversation_id: str, auth: Auth, db: DbSession):
     """Latency statistics for a session."""
     from backend.db.models import TraceEvent
 

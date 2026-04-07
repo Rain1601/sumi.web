@@ -22,7 +22,7 @@ from backend.services.prompts.conversation_test import (
     SIMULATED_USER_SYSTEM,
 )
 
-logger = logging.getLogger("sumi.voice_test")
+logger = logging.getLogger("kodama.voice_test")
 
 
 def _sse(event: str, data: dict) -> str:

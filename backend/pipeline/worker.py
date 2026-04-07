@@ -253,13 +253,23 @@ async def entrypoint(ctx: JobContext):
     agent_id = participant.metadata or "default"
     logger.info(f"[WORKER] Participant: user={user_id} agent={agent_id}")
 
-    # Create conversation record
+    # Create conversation record (resolve tenant_id from agent)
     conversation_id = str(uuid.uuid4())
     async with async_session() as db:
-        conv = Conversation(id=conversation_id, user_id=user_id, agent_id=agent_id, room_name=ctx.room.name)
+        # Look up agent's tenant_id
+        from sqlalchemy import select
+        from backend.db.models import Agent as AgentModel
+        result = await db.execute(select(AgentModel.tenant_id).where(AgentModel.id == agent_id))
+        row = result.scalar_one_or_none()
+        conv_tenant_id = row if row else "default-tenant"
+
+        conv = Conversation(
+            id=conversation_id, user_id=user_id, agent_id=agent_id,
+            room_name=ctx.room.name, tenant_id=conv_tenant_id,
+        )
         db.add(conv)
         await db.commit()
-    logger.info(f"[WORKER] Conversation created: {conversation_id}")
+    logger.info(f"[WORKER] Conversation created: {conversation_id} (tenant={conv_tenant_id})")
 
     # Load agent definition from DB
     from backend.agents.manager import agent_manager
@@ -437,8 +447,19 @@ async def entrypoint(ctx: JobContext):
 
     # Speak the opening line if configured
     if agent_def.opening_line:
-        await session.say(agent_def.opening_line)
-        logger.info(f"[WORKER] Opening line sent: {agent_def.opening_line[:50]}")
+        # Small delay to ensure TTS/WebRTC track is ready for first utterance
+        await asyncio.sleep(1.0)
+        try:
+            await session.say(agent_def.opening_line)
+            logger.info(f"[WORKER] Opening line sent: {agent_def.opening_line[:50]}")
+        except Exception as e:
+            logger.warning(f"[WORKER] Opening line failed: {e}, retrying...")
+            await asyncio.sleep(1.5)
+            try:
+                await session.say(agent_def.opening_line)
+                logger.info(f"[WORKER] Opening line sent (retry): {agent_def.opening_line[:50]}")
+            except Exception as e2:
+                logger.error(f"[WORKER] Opening line failed after retry: {e2}")
 
     # Capture user audio for recording
     async def _capture_user_audio():
@@ -469,7 +490,7 @@ if __name__ == "__main__":
             api_key=settings.livekit_api_key,
             api_secret=settings.livekit_api_secret,
             ws_url=settings.livekit_url,
-            agent_name="sumi-agent",   # Only accept dispatches for this name
+            agent_name="kodama-agent",   # Only accept dispatches for this name
             num_idle_processes=1,
             load_threshold=0.9,
         ),

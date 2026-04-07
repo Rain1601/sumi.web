@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.config import settings
 from backend.db.models import Agent, AgentRule
 from backend.pipeline.prompt_builder import build_dynamic_prompt, format_rules
@@ -27,6 +27,7 @@ class ConversationTestRequest(BaseModel):
 async def run_agent_conversation_test(
     agent_id: str,
     request: ConversationTestRequest,
+    auth: Auth,
     db: DbSession,
 ):
     """Run an NLP adversarial conversation test for an agent, streamed via SSE."""

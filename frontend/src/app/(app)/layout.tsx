@@ -26,9 +26,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2.5 px-5 h-[52px]" style={{ textDecoration: "none" }}>
             <span className="flex items-center justify-center w-[24px] h-[24px] rounded-[7px] text-[11px] font-bold"
-              style={{ background: "var(--accent)", color: "white" }}>S</span>
+              style={{ background: "var(--accent)", color: "white" }}>K</span>
             <span className="text-[14px] font-semibold tracking-[-0.02em]" style={{ color: "var(--fg)" }}>
-              sumi.web
+              Kodama
             </span>
           </Link>
 
@@ -76,7 +76,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main */}
-      <main className="flex-1" style={{ marginLeft: "var(--sidebar-w)" }}>{children}</main>
+      <main className="flex-1" style={{ marginLeft: "var(--sidebar-w)", overflowY: "auto", height: "100vh" }}>{children}</main>
 
       {/* Mobile bar */}
       <nav className="mobile-bar fixed bottom-0 left-0 right-0 z-40 justify-around items-center h-[52px] glass"

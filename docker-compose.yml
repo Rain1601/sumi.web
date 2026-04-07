@@ -9,12 +9,3 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  redis_data:

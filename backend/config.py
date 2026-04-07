@@ -24,16 +24,15 @@ class Settings(BaseSettings):
     livekit_api_key: str = "devkey"
     livekit_api_secret: str = "secret"
 
-    # Redis
-    redis_url: str = "redis://localhost:6379"
-
     # Database
-    database_url: str = "sqlite+aiosqlite:///./data/sumi.db"
+    database_url: str = "sqlite+aiosqlite:///./data/kodama.db"
 
     # ChromaDB
     chroma_persist_dir: str = "./chroma_data"
 
-    # Supabase
+    # Auth — Firebase (production) or Supabase (legacy)
+    auth_provider: str = "firebase"  # "firebase" | "supabase"
+    firebase_credentials_json: str = ""  # Path to service account JSON or JSON string
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""

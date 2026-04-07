@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from backend.api.deps import DbSession
+from backend.api.deps import Auth, DbSession
 from backend.db.models import Agent, AgentTool, gen_uuid
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ async def _get_agent_or_404(agent_id: str, db) -> Agent:
 
 
 @router.get("/{agent_id}/tools", response_model=list[ToolResponse])
-async def list_tools(agent_id: str, db: DbSession):
+async def list_tools(agent_id: str, auth: Auth, db: DbSession):
     """List all tools for an agent."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -67,7 +67,7 @@ async def list_tools(agent_id: str, db: DbSession):
 
 
 @router.post("/{agent_id}/tools", response_model=ToolResponse)
-async def create_tool(agent_id: str, req: ToolCreate, db: DbSession):
+async def create_tool(agent_id: str, req: ToolCreate, auth: Auth, db: DbSession):
     """Create a new tool config for an agent."""
     await _get_agent_or_404(agent_id, db)
     tool = AgentTool(
@@ -90,7 +90,7 @@ async def create_tool(agent_id: str, req: ToolCreate, db: DbSession):
 
 
 @router.patch("/{agent_id}/tools/{tool_config_id}", response_model=ToolResponse)
-async def update_tool(agent_id: str, tool_config_id: str, req: ToolUpdate, db: DbSession):
+async def update_tool(agent_id: str, tool_config_id: str, req: ToolUpdate, auth: Auth, db: DbSession):
     """Update an agent tool config."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -115,7 +115,7 @@ async def update_tool(agent_id: str, tool_config_id: str, req: ToolUpdate, db: D
 
 
 @router.delete("/{agent_id}/tools/{tool_config_id}")
-async def delete_tool(agent_id: str, tool_config_id: str, db: DbSession):
+async def delete_tool(agent_id: str, tool_config_id: str, auth: Auth, db: DbSession):
     """Delete an agent tool config."""
     await _get_agent_or_404(agent_id, db)
     result = await db.execute(
@@ -143,7 +143,7 @@ class ToolRunResponse(BaseModel):
 
 
 @router.post("/run/{tool_id}", response_model=ToolRunResponse)
-async def run_tool(tool_id: str, req: ToolRunRequest):
+async def run_tool(tool_id: str, req: ToolRunRequest, auth: Auth):
     """Execute a tool directly for testing. No agent context required."""
     from backend.agents.tools.registry import tool_registry
     from backend.agents.tools.base import ToolContext
