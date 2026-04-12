@@ -62,6 +62,31 @@ async def health():
     return {"status": "ok", "env": settings.app_env}
 
 
+@app.get("/api/admin/debug/tenants")
+async def debug_tenants():
+    """Debug: show all tenants and their agent counts."""
+    from sqlalchemy import select, func
+    from backend.db.engine import async_session
+    from backend.db.models import Agent, TenantMember, Tenant
+
+    async with async_session() as db:
+        result = await db.execute(select(TenantMember))
+        members = result.scalars().all()
+
+        tenants = []
+        for m in members:
+            count = await db.execute(
+                select(func.count()).select_from(Agent).where(Agent.tenant_id == m.tenant_id)
+            )
+            tenants.append({
+                "tenant_id": m.tenant_id,
+                "user_id": m.user_id,
+                "role": m.role,
+                "agent_count": count.scalar() or 0,
+            })
+    return {"tenants": tenants}
+
+
 @app.post("/api/admin/seed")
 async def admin_seed():
     """One-time seed: populate default-tenant with template agents and models.
