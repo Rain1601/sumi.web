@@ -192,6 +192,17 @@ async def get_auth_context(
     membership = result.scalar_one_or_none()
 
     if membership:
+        # Check if tenant has agents; if not, clone defaults (covers users who
+        # registered before seed data existed)
+        from sqlalchemy import func
+        from backend.db.models import Agent
+        count_result = await db.execute(
+            select(func.count()).select_from(Agent).where(Agent.tenant_id == membership.tenant_id)
+        )
+        if (count_result.scalar() or 0) == 0:
+            await _clone_default_data(membership.tenant_id, user_id, db)
+            await db.commit()
+
         return AuthContext(
             user_id=user_id,
             tenant_id=membership.tenant_id,

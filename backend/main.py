@@ -14,6 +14,10 @@ async def lifespan(app: FastAPI):
         settings.db_path.mkdir(parents=True, exist_ok=True)
     await init_db()
 
+    # Auto-seed: ensure default-tenant has template agents/models
+    from backend.db.seed import seed
+    await seed(skip_init=True)
+
     # Register providers and tools
     from backend.providers.registry import register_default_providers
     from backend.agents.tools.common.datetime_tool import DateTimeTool
