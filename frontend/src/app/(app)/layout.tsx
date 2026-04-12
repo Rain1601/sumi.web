@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthStore } from "@/stores/auth";
 
@@ -16,7 +17,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut } = useAuth();
   const { displayName, isAuthenticated } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, router]);
+
+  if (!isAuthenticated) {
+    return null; // Don't flash app UI while redirecting
+  }
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--bg-0)" }}>
