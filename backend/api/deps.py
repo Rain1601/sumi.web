@@ -68,6 +68,19 @@ async def get_current_user_id(
         # In dev mode, accept plain user IDs for testing
         return token
 
+    if settings.is_dev and token.startswith("ey"):
+        # In dev mode, decode JWT without signature verification
+        # This allows both Firebase and Supabase tokens to work locally
+        try:
+            import jwt as pyjwt
+            payload = pyjwt.decode(token, options={"verify_signature": False})
+            # Firebase uses "user_id" or "uid", Supabase uses "sub"
+            uid = payload.get("user_id") or payload.get("uid") or payload.get("sub")
+            if uid:
+                return uid
+        except Exception:
+            pass  # Fall through to normal verification
+
     if settings.auth_provider == "firebase":
         return _verify_firebase_token(token)
     else:

@@ -74,8 +74,8 @@ DEFAULT_MODELS = [
     ProviderModel(id="asr-qwen3-flash", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Flash", provider_type="asr",
                   provider_name="dashscope", model_name="qwen3-asr-flash-realtime",
                   config={"language": "zh", "max_sentence_silence": 600}),
-    ProviderModel(id="asr-qwen3-realtime", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Realtime", provider_type="asr",
-                  provider_name="dashscope", model_name="qwen3-asr-realtime",
+    ProviderModel(id="asr-qwen3-realtime", tenant_id=DEFAULT_TENANT_ID, name="Qwen3-ASR-Flash Realtime", provider_type="asr",
+                  provider_name="dashscope", model_name="qwen3-asr-flash-realtime",
                   config={"language": "zh", "max_sentence_silence": 600}),
     ProviderModel(id="asr-whisper", tenant_id=DEFAULT_TENANT_ID, name="Whisper Large", provider_type="asr",
                   provider_name="openai", model_name="whisper-1",
@@ -614,27 +614,44 @@ async def seed(skip_init: bool = False):
 
         await session.flush()
 
-        # Seed models
+        # Seed models (upsert: update existing, add new)
         for model in DEFAULT_MODELS:
             existing = await session.execute(
                 select(ProviderModel).where(ProviderModel.id == model.id)
             )
-            if existing.scalar_one_or_none():
-                print(f"  Model '{model.id}' exists, skipping")
-                continue
-            session.add(model)
-            print(f"  + Model: [{model.provider_type}] {model.name} ({model.model_name})")
+            existing_model = existing.scalar_one_or_none()
+            if existing_model:
+                # Update existing model with latest config
+                existing_model.name = model.name
+                existing_model.model_name = model.model_name
+                existing_model.config = model.config
+                print(f"  ~ Model updated: [{model.provider_type}] {model.name} ({model.model_name})")
+            else:
+                session.add(model)
+                print(f"  + Model: [{model.provider_type}] {model.name} ({model.model_name})")
 
-        # Seed agents
+        # Seed agents (upsert: update existing, add new)
         for agent in DEFAULT_AGENTS:
             existing = await session.execute(
                 select(Agent).where(Agent.id == agent.id)
             )
-            if existing.scalar_one_or_none():
-                print(f"  Agent '{agent.id}' exists, skipping")
-                continue
-            session.add(agent)
-            print(f"  + Agent: {agent.name_en}")
+            existing_agent = existing.scalar_one_or_none()
+            if existing_agent:
+                # Update existing agent with latest config
+                existing_agent.system_prompt = agent.system_prompt
+                existing_agent.tts_model_id = agent.tts_model_id
+                existing_agent.tts_provider = agent.tts_provider
+                existing_agent.tts_config = agent.tts_config
+                existing_agent.asr_model_id = agent.asr_model_id
+                existing_agent.nlp_model_id = agent.nlp_model_id
+                existing_agent.opening_line = agent.opening_line
+                existing_agent.role = agent.role
+                existing_agent.goal = agent.goal
+                existing_agent.test_scenario = agent.test_scenario
+                print(f"  ~ Agent updated: {agent.name_en}")
+            else:
+                session.add(agent)
+                print(f"  + Agent: {agent.name_en}")
 
         # Seed tools for default agent
         default_tools = [

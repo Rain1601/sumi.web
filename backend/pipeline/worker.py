@@ -346,9 +346,15 @@ async def entrypoint(ctx: JobContext):
     llm_info = await resolve_model(getattr(agent_def, "nlp_model_id", None))
     tts_info = await resolve_model(getattr(agent_def, "tts_model_id", None))
 
+    # Merge per-agent tts_config (voice, etc.) into model-level config
+    # Agent's tts_config overrides the ProviderModel's default config
+    if tts_info and agent_def.tts_config:
+        tts_info["config"] = {**tts_info.get("config", {}), **agent_def.tts_config}
+
     logger.info(f"[WORKER] Models: ASR={stt_info and stt_info['model_name']} "
                 f"NLP={llm_info and llm_info['model_name']} "
-                f"TTS={tts_info and tts_info['model_name']}")
+                f"TTS={tts_info and tts_info['model_name']} "
+                f"TTS-voice={tts_info and tts_info.get('config', {}).get('voice', '?')}")
 
     # Create plugins via unified factory
     voiceprint_enabled = getattr(agent_def, "voiceprint_enabled", False)

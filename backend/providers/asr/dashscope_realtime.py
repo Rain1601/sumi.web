@@ -11,6 +11,7 @@ import json
 import logging
 import time
 
+import numpy as np
 import websockets
 from livekit import rtc
 from livekit.agents import stt, NOT_GIVEN, APIConnectOptions
@@ -76,6 +77,7 @@ class DashScopeRealtimeStream(stt.RecognizeStream):
         self._silence_duration_ms = silence_duration_ms
         self._api_key = api_key
         self._base_url = base_url
+        self._actual_sr = None  # detected from first audio frame
 
     async def _run(self):
         """Connect to DashScope Realtime API, stream audio, receive transcripts."""
@@ -112,59 +114,93 @@ class DashScopeRealtimeStream(stt.RecognizeStream):
             if resp.get("type") != "session.created":
                 raise Exception(f"Expected session.created, got {resp.get('type')}")
 
-            # Send session.update — use DashScope built-in server VAD
-            await ws.send(json.dumps({
-                "event_id": "init",
-                "type": "session.update",
-                "session": {
-                    "modalities": ["text"],
-                    "input_audio_format": "pcm",
-                    "sample_rate": self._sample_rate,
-                    "input_audio_transcription": {
-                        "language": self._language,
-                    },
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "threshold": self._vad_threshold,
-                        "silence_duration_ms": self._silence_duration_ms,
-                    },
-                },
-            }))
+            # We defer session.update until we know the actual audio sample rate
+            # from the first frame. Start send+recv, send will trigger session.update.
+            self._ws = ws
+            self._session_configured = asyncio.Event()
 
-            logger.info(f"[ASR REALTIME] Session configured: lang={self._language} vad_threshold={self._vad_threshold}")
-
-            # Run send + receive concurrently
             send_task = asyncio.create_task(self._send_audio(ws))
             recv_task = asyncio.create_task(self._recv_results(ws))
 
             await asyncio.gather(send_task, recv_task)
 
+    async def _configure_session(self, ws, source_sr: int):
+        """Send session.update. Always use 16000Hz (DashScope only supports 16kHz)."""
+        self._source_sr = source_sr
+        self._need_resample = source_sr != self._sample_rate
+        if self._need_resample:
+            logger.info(f"[ASR REALTIME] Will resample {source_sr}→{self._sample_rate}Hz")
+
+        await ws.send(json.dumps({
+            "event_id": "init",
+            "type": "session.update",
+            "session": {
+                "modalities": ["text"],
+                "input_audio_format": "pcm",
+                "sample_rate": self._sample_rate,
+                "input_audio_transcription": {
+                    "language": self._language,
+                },
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": self._vad_threshold,
+                    "silence_duration_ms": self._silence_duration_ms,
+                },
+            },
+        }))
+        self._session_configured.set()
+        logger.info(f"[ASR REALTIME] Session configured: lang={self._language} sr={self._sample_rate} (source={source_sr}) vad_threshold={self._vad_threshold}")
+
+    def _resample(self, pcm_bytes: bytes) -> bytes:
+        """Resample PCM int16 from source_sr to self._sample_rate (16kHz)."""
+        pcm = np.frombuffer(pcm_bytes, dtype=np.int16)
+        ratio = self._sample_rate / self._source_sr
+        n_out = int(len(pcm) * ratio)
+        indices = (np.arange(n_out) / ratio).astype(np.int64)
+        indices = np.clip(indices, 0, len(pcm) - 1)
+        return pcm[indices].tobytes()
+
     async def _send_audio(self, ws):
         """Read audio frames from LiveKit and send as base64 to Realtime API.
 
-        DashScope server VAD handles speech boundary detection.
-        We just forward all audio frames continuously.
+        DashScope only supports 16kHz PCM. Resamples if source differs.
         """
+        frame_count = 0
         try:
             async for frame in self._input_ch:
                 if not isinstance(frame, rtc.AudioFrame):
                     continue  # skip FlushSentinel etc.
 
+                # On first frame, configure session and detect resample need
+                if frame_count == 0:
+                    await self._configure_session(ws, frame.sample_rate)
+
                 pcm_bytes = frame.data.tobytes()
+                if self._need_resample:
+                    pcm_bytes = self._resample(pcm_bytes)
+
                 encoded = base64.b64encode(pcm_bytes).decode('utf-8')
                 await ws.send(json.dumps({
                     "type": "input_audio_buffer.append",
                     "audio": encoded,
                 }))
-        except Exception:
-            pass
+                frame_count += 1
+                if frame_count == 1:
+                    logger.info(f"[ASR REALTIME] First audio frame sent: {len(pcm_bytes)} bytes, source_sr={frame.sample_rate}, resampled={self._need_resample}")
+                elif frame_count % 500 == 0:
+                    logger.info(f"[ASR REALTIME] Sent {frame_count} audio frames")
+        except Exception as e:
+            logger.warning(f"[ASR REALTIME] Send audio error after {frame_count} frames: {e}")
+        logger.info(f"[ASR REALTIME] Send audio finished, total frames: {frame_count}")
 
     async def _recv_results(self, ws):
         """Receive events from Realtime API and emit SpeechEvents."""
         speech_started = False
+        event_count = 0
 
         try:
             async for msg in ws:
+                event_count += 1
                 if isinstance(msg, bytes):
                     continue
 
@@ -225,7 +261,8 @@ class DashScopeRealtimeStream(stt.RecognizeStream):
                     break
 
                 elif evt_type == "session.updated":
-                    logger.debug("[ASR REALTIME] Session updated")
+                    logger.info("[ASR REALTIME] Session updated confirmed by server")
 
-        except websockets.exceptions.ConnectionClosed:
-            pass
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.warning(f"[ASR REALTIME] WebSocket closed: {e}")
+        logger.info(f"[ASR REALTIME] Recv loop ended, total events: {event_count}")
