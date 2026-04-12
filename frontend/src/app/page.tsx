@@ -205,13 +205,15 @@ export default function Home() {
           </Link>
         </div>
 
-        <button
-          onClick={skip}
-          className="text-[11px] tracking-[0.04em] uppercase btn btn-ghost mt-3 animate-in"
-          style={{ animationDelay: "0.15s" }}
-        >
-          Skip login
-        </button>
+        {process.env.NODE_ENV === "development" && (
+          <button
+            onClick={skip}
+            className="text-[11px] tracking-[0.04em] uppercase btn btn-ghost mt-3 animate-in"
+            style={{ animationDelay: "0.15s" }}
+          >
+            Skip login
+          </button>
+        )}
       </section>
 
       {/* ═══ Feature row — bottom of viewport, horizontal ═══ */}

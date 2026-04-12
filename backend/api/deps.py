@@ -64,9 +64,11 @@ async def get_current_user_id(
 
     token = authorization.removeprefix("Bearer ").strip()
 
-    if settings.is_dev and not token.startswith("ey"):
-        # In dev mode, accept plain user IDs for testing
-        return token
+    if not token.startswith("ey"):
+        if settings.is_dev:
+            # In dev mode, accept plain user IDs for testing
+            return token
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     if settings.is_dev and token.startswith("ey"):
         # In dev mode, decode JWT without signature verification
